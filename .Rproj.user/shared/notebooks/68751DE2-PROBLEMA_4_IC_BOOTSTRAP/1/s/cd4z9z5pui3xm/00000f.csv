@@ -1,0 +1,39 @@
+"0",""
+"0","paquetes <- c(""knitr"", ""tidyverse"", ""broom"", ""infer"", ""boot"" )"
+"0",""
+"0","for (paquete in paquetes){"
+"0","  if (!require(paquete, character.only = TRUE)) {"
+"0","    install.packages(paquete)"
+"0","    library(paquete, character.only = TRUE)"
+"0","  } else {"
+"0","    library(paquete, character.only = TRUE)"
+"0","  }"
+"0","}"
+"2","WARNING: Rtools is required to build R packages but is not currently installed. Please download and install the appropriate version of Rtools before proceeding:
+
+https://cran.rstudio.com/bin/windows/Rtools/
+"
+"2","probando la URL 'https://cran.rstudio.com/bin/windows/contrib/4.5/infer_1.1.0.zip'
+"
+"2","Content type 'application/zip'"
+"2"," length 2141716 bytes (2.0 MB)
+"
+"2","downloaded 2.0 MB
+
+"
+"1","package ‘infer’ successfully unpacked and MD5 sums checked
+"
+"1","
+"
+"1",""
+"1","The downloaded binary packages are in
+	C:\Users\Victor\AppData\Local\Temp\RtmpqKEnuA\downloaded_packages"
+"1",""
+"1","
+"
+"0","library(knitr)"
+"0","library(tidyverse)"
+"0","library(broom)"
+"0","library(infer)"
+"0","library(boot)"
+"0",""
