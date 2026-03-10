@@ -53,7 +53,7 @@ c. Procedimiento bootstrap:
 
 ```{r instalacion_librerias, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
 
-paquetes <- c("knitr", "tidyverse", "broom", "infer", "boot" )
+paquetes <- c("knitr", "tidyverse", "broom", "infer", "boot", "kableExtra", "stringr", "summarytools", "dplyr","ggplot2","nortest","moments", "tibble" )
 
 for (paquete in paquetes){
   if (!require(paquete, character.only = TRUE)) {
@@ -68,5 +68,446 @@ library(tidyverse)
 library(broom)
 library(infer)
 library(boot)
+library(kableExtra)
+library(stringr)
+library(summarytools)
+library(dplyr)
+library(ggplot2)
+library(nortest)
+library(moments)
+library(tibble)
 
 ```
+Definimos los valores a usar en la Tabla \@ref(tab:constantes):
+```{r constantes}
+seed <- 456
+set.seed(seed) # Reproducibilidad
+n <- length(muestra)
+alpha <- 0.05
+conf_level <- 1 - alpha
+tabla_constantes <- tibble(
+  Parametro = c(
+    "Semilla aleatoria",
+    "Tamaño de muestra",
+    "Nivel de significancia (alpha)",
+    "Nivel de confiabilidad"
+  ),
+  Valor = c(
+    seed,
+    n,
+    alpha,
+    conf_level
+  )
+)
+knitr::kable(
+  tabla_constantes,
+  digits = 4,
+  caption = "Valores a tener en cuenta para este problema.",
+  format = "html"
+) %>%
+  kable_styling(
+    bootstrap_options = c("bordered", "striped", "hover"),
+    full_width = FALSE,
+    font_size = 11
+  )
+
+```
+
+## 4.a. Normalidad
+
+Para inciiar validaremos la distribución de la muestra.
+
+```{r estadisticaDescriptiva, message=FALSE, warning=FALSE}
+
+data_temp <- data.frame(muestra = muestra)
+
+lista_resultados <- list()
+vars_graph <- c("muestra")
+
+for(v in vars_graph) {
+  
+  vec <- as.numeric(data_temp[[v]])
+  
+  n_total <- length(vec)
+  n_na <- sum(is.na(vec))
+  pct_na <- (n_na / n_total) * 100
+  
+  vec_clean <- na.omit(vec)
+  n_subdataset <- length(vec_clean)
+  
+  # --- Outliers (1.5 IQR) ---
+  q1 <- quantile(vec_clean, 0.25)
+  q3 <- quantile(vec_clean, 0.75)
+  iqr_val <- q3 - q1
+  
+  lim_inf <- q1 - 1.5 * iqr_val
+  lim_sup <- q3 + 1.5 * iqr_val
+  
+  outliers <- vec_clean[vec_clean < lim_inf | vec_clean > lim_sup]
+  n_outliers <- length(outliers)
+  
+  pct_outliers <- (n_outliers / n_subdataset) * 100
+  
+  tabla <- descr(
+    vec_clean,
+    stats = c("n.valid","min","q1","med","q3","max","mean","sd","cv"),
+    transpose = TRUE
+  ) %>%
+    tb() %>%
+    rename(Estadistico = 1) %>%
+    mutate(
+      Variable = v,
+      Outliers_N = n_outliers,
+      Pct_Outliers = pct_outliers,
+      Datos_NA = n_na,
+      Pct_Datos_NA = pct_na
+    )
+  
+  lista_resultados[[v]] <- tabla
+}
+
+tabla_maestra <- bind_rows(lista_resultados)
+
+knitr::kable(
+  tabla_maestra,
+  digits = 2,
+  caption = "Análisis descriptivo y outliers (Regla 1.5·IQR) de la muestra",
+  format = "html"
+) %>%
+  kable_styling(
+    bootstrap_options = c("bordered", "striped", "hover"),
+    full_width = FALSE,
+    font_size = 11
+  )
+```
+```{r estadisticaHistograma, message=FALSE, warning=FALSE,  fig.cap="Histograma y densidad de la eficiencia (kWh/L) muestra.", fig.width=10, fig.height=6}
+
+df <- tibble(x = muestra)
+
+ggplot(df, aes(x = x)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 10, color = "white") +
+  geom_density(linewidth = 1) +
+  labs(
+    title = "Histograma y densidad de la eficiencia (kWh/L) muestra.",
+    x = "Eficiencia (kWh/L)",
+    y = "Densidad"
+  ) +
+  theme_minimal()
+```
+
+De la Tabla \@ref(tab:estadisticaDescriptiva) vemos `Mediana - Q1 = 0.13` y que `Q3 - Mediana = 0.21`, por lo cual hay ligera asimetría derecha, pero nada extremo. No vemos outliers en la muestra. La media 5.92 y la mediana 5.9, aproximadamente iguales. La dispersión es muy baja, inclusive el coeficiente de variación de 0.04 muestra que es muy estable la media. La muestra presenta características compatibles con una distribución aproximadamente normal y sugiere que los datos son consistentes y homogéneos.En la figura \@ref(fig:estadisticaHistograma) vemos un histograma el cual forma aproximadamente simétrica, con una curva densidad en forma de campana, que para pocas muestras puede mostrar una form similar a la distribución normal.
+
+Prueba de Shapiro–Wilk: Es la prueba más potente para muestras pequeñas (n < 50). En nuestro caso n = 20 por lo que el resultado de esta prueba es fiable.
+
+- Hipótesis H0 (nula): los datos provienen de una Distribución Normal
+- Hipótesis H1 (alternativa): los datos no provienen de una distribución normal
+
+```{r pruebaNormalidad, message=FALSE, warning=FALSE}
+
+shapiro <- shapiro.test(muestra)
+cat("Test de normalidad Shapiro-Wilk\n")
+
+if(shapiro$p.value > alpha){
+  
+  cat(paste0(
+    "Conclusión: No se rechaza H0 (p-value = ",
+    round(shapiro$p.value,4), " y alpha de ",alpha,
+    ").\n"
+  ))
+  
+  cat("Los datos son compatibles con una distribución normal.")
+  
+} else {
+  
+  cat(paste0(
+    "Conclusión: Se rechaza H0 (p-value = ",
+    round(shapiro$p.value,4), " y alpha de ",alpha,
+    ").\n"
+  ))
+  
+  cat("Los datos no siguen una distribución normal.")
+}
+```
+```{r pruebaqqNormalidad, message=FALSE, warning=FALSE, fig.cap="Q-Q Plot para evaluar normalidad", fig.width=10, fig.height=6}
+
+qqnorm(muestra,
+       main = "Q-Q Plot para evaluar normalidad")
+
+qqline(muestra,
+       col = "red",
+       lwd = 2)
+```
+
+
+Se aplicó la prueba de Shapiro-Wilk con un nivel de significancia de 
+α = 0.05, los resultados se observa que cumple la hipótesis nula: los datos provienen de una distribución normal. Esto dado que el valor p obtenido fue mayor que 0.05, por lo que no se rechaza la hipótesis de normalidad.
+
+Adicionalmente, el gráfico Q-Q de la figura \@ref(fig:pruebaqqNormalidad) muestra que los puntos se alinean aproximadamente con la línea teórica, lo cual respalda la suposición de normalidad, aunque en la parte derecha tiene una pequeña desviación en los 2 ultimos puntos, que sería el 1%.
+
+## 4.b. Método paramétrico para intervalo de confianza
+Cuando la varianza poblacional es desconocida y la muestra es pequeña, se usa la distribución t.
+
+$$
+IC = \bar{x} \pm t_{\alpha/2,n-1}\frac{s}{\sqrt{n}}
+$$
+
+```{r intervaloParametrico, message=FALSE, warning=FALSE}
+cat("Resultado de intervalo de confiaza para distribución t")
+ic_parametrico <- t.test(muestra, conf.level = conf_level)
+ic_parametrico
+```
+
+Por lo tanto, el intervalo de confianza para la media poblacional es: `IC95%=(5.813038,6.021962)`, lo que indica que con un 95% de confianza, la media verdadera de la población se encuentra entre: `5.813 ≤𝜇≤ 6.022` usando el Paramétrico t.
+
+
+## 4.c. Procedimiento bootstrap para calculo de intervalod e confianza
+
+Se recurre a técnicas no paramétricas para estimar el intervalo de confianza, como el método bootstrap, 
+el bootstrap permite estimar la distribución del estimador mediante remuestreo con reemplazo. El método **bootstrap** consiste en generar múltiples muestras a partir de la muestra original mediante **remuestreo con reemplazo**. Sea una muestra original de tamaño:
+
+\[
+n = 20
+\]
+
+Cada muestra bootstrap también tiene tamaño \(n\), y cada posición de la muestra puede tomar cualquiera de los valores de la muestra original. Por lo tanto, el número total de posibles muestras bootstrap está dado por:
+
+\[
+n^n
+\]
+
+En este caso:
+
+\[
+20^{20}
+\]
+
+Calculando este valor:
+
+\[
+20^{20} = 1.048576e+26 
+\]
+
+Debido a que este número es muy grande, **no es posible generar todas las combinaciones posibles**. Por esta razón, el bootstrap utiliza una **aproximación por simulación**, en este caso usaremos un `B = 10000` muestras de bootstrap que permitirá tener mucho menor error y un alpha de 0.05.
+
+```{r intervaloBootstrap, message=FALSE, warning=FALSE, fig.cap="Distribución de las varianzas bootstrap con ajuste de curva normal. Las lineas representan los limites de los intervalos de confianza bootstrap de la varianza: Percentil, Normal y BCa.", fig.width=10, fig.height=6}
+#función para sacar la media
+
+B = 10000
+
+boot_function <- function(data, indices) {
+  mean(data[indices])
+}
+
+boot_results <- boot(data = muestra, statistic = boot_function, R = B)
+
+# Distribución bootstrap de la media
+bootstrap_media <- as.vector(boot_results$t)
+
+# Media y desviación estándar bootstrap
+mean_bootstrap <- mean(bootstrap_media)
+sd_bootstrap <- sd(bootstrap_media)
+
+# Intervalos de confianza
+IC.p   <- boot.ci(boot_results, type = "perc")$percent[4:5]
+IC.N   <- boot.ci(boot_results, type = "norm")$normal[2:3]
+IC.BCa <- boot.ci(boot_results, type = "bca")$bca[4:5]
+
+# Dataframe para la gráfica
+df <- data.frame(bootstrap_media = bootstrap_media)
+
+# Curva normal ajustada
+x_vals <- seq(min(bootstrap_media), max(bootstrap_media), length.out = 200)
+normal_curve <- data.frame(
+  x = x_vals,
+  y = dnorm(x_vals, mean = mean_bootstrap, sd = sd_bootstrap)
+)
+
+# Gráfica
+plot.boot.c <- ggplot(df, aes(x = bootstrap_media)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 30,
+                 fill = "lightblue",
+                 color = "black",
+                 alpha = 0.6) +
+  geom_line(data = normal_curve,
+            aes(x = x, y = y),
+            color = "darkorange",
+            linewidth = 1.2) +
+  geom_vline(xintercept = IC.p,
+             color = "red",
+             linetype = "dashed",
+             linewidth = 1.1) +
+  geom_vline(xintercept = IC.N,
+             color = "blue",
+             linetype = "dotted",
+             linewidth = 1.1) +
+  geom_vline(xintercept = IC.BCa,
+             color = "black",
+             linetype = "dotdash",
+             linewidth = 1.1) +
+  labs(
+    title = "Distribución Bootstrap de la Media",
+    x = "Media bootstrap (kWh/L)",
+    y = "Densidad"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, size = 14)) +
+  annotate("text", x = mean(IC.p), y = 6,
+           label = "IC Percentil", color = "red", angle = 90, vjust = -0.5, size = 3.5) +
+  annotate("text", x = mean(IC.N), y = 5,
+           label = "IC Normal", color = "blue", angle = 90, vjust = -0.5, size = 3.5) +
+  annotate("text", x = mean(IC.BCa), y = 4,
+           label = "IC BCa", color = "black", angle = 90, vjust = -0.5, size = 3.5)
+
+print(plot.boot.c)
+
+```
+El al figura \@ref(fig:intervaloBootstrap) podemos ver una distribución normal de la media como lo indica el teorema del limite central, vemos los diferentes marcadores para intervalos de confianza.
+
+A partir de la simulación bootstrap, se obtuvieron los siguientes intervalos de confianza al 95% para la varianza de la población en la Tabla \@ref(tab:intervaloBootstrapTab).
+
+
+```{r intervaloBootstrapTab, message=FALSE, warning=FALSE}
+
+comparacion <- tibble(
+  Metodo = c("Paramétrico t", 
+             "Bootstrap Percentil", 
+             "Bootstrap Normal",
+             "Bootstrap BCa"),
+  IC_INFERIOR = c(ic_parametrico$conf.int[1], 
+                  IC.p[1], 
+                  IC.N[1], 
+                  IC.BCa[1]),
+  IC_SUPERIOR = c(ic_parametrico$conf.int[2], 
+                  IC.p[2], 
+                  IC.N[2], 
+                  IC.BCa[2])
+)
+
+
+knitr::kable(
+  comparacion,
+  digits = 4,
+  caption = "Comparativo de intervalos de confianza",
+  format = "html"
+) %>%
+  kable_styling(
+    bootstrap_options = c("bordered", "striped", "hover"),
+    full_width = FALSE,
+    font_size = 11
+  )
+
+```
+
+Teniendo en cuenta que en la Tabla \@ref(tab:intervaloBootstrapTab: 
+- Paramétrico t → intervalo basado en la distribución t (supone normalidad).
+- Bootstrap Percentil → usa directamente los percentiles de las muestras bootstrap.
+- Bootstrap Normal → usa aproximación normal con media y desviación bootstrap.
+- Bootstrap BCa → corrige bias y aceleración, suele ser el más robusto.
+
+
+El intervalo paramétrico y los intervalos bootstrap estiman el rango para la media poblacional de eficiencia energética. Los tres intervalos son similares a tal punto que todos los de Bootstrap son subconjuntos de el calculo de el Paramétrico t. Por lo cual el Paramétrico t es un intervalo mucho más amplio.
+
+Para evaluar si la distribución de las varianzas bootstrap se aproxima a una distribución normal, se pueden calcular estadísticas descriptivas como la asimetría y la curtosis, así como aplicar distintos tests de normalidad. No obstante, cuando el número de remuestreos es grande (por ejemplo 𝐵= 10000), los tests de normalidad tienden a ser muy sensibles y pueden rechazar la hipótesis de normalidad incluso ante desviaciones pequeñas.
+
+Por esta razón, además del valor-p de los tests, es recomendable analizar medidas de forma de la distribución como la asimetría y la curtosis, así como inspeccionar gráficamente la distribución bootstrap.
+
+Si la distribución bootstrap es aproximadamente simétrica y cercana a una normal, el intervalo bootstrap normal puede ser una aproximación adecuada. En cambio, si se observa asimetría o los tests de normalidad rechazan la hipótesis nula, es preferible utilizar intervalos bootstrap Percentil o BCa, siendo este último generalmente más robusto porque corrige el sesgo y la asimetría de la distribución.
+
+Dado el tamaño grande de B, puede adoptarse un nivel de significancia más estricto, como alpha =
+0.01, para reducir la probabilidad de rechazar la normalidad por desviaciones menores.
+
+
+```{r TestNormalBootstrap, message=FALSE, warning=FALSE}
+# options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+# Función para calcular la estadística de interés (en este caso, la media)
+boot_function <- function(data, indices) {
+  return(var(data[indices]))
+}
+
+# Generar muestras bootstrap usando la librería boot
+boot_results <- boot(data = muestra, statistic = boot_function, R = B)
+
+# Obtener la distribución de medias bootstrap
+bootstrap_var <- boot_results$t
+
+# Test de Anderson-Darling
+ad_test <- ad.test(bootstrap_var)
+
+# Test de Cramer-von Mises
+cvm_test <- cvm.test(bootstrap_var)
+
+# Test de Lilliefors (Kolmogorov-Smirnov modificado)
+lillie_test <- lillie.test(bootstrap_var)
+
+# Test de D'Agostino-Pearson (manual: usa asimetría y curtosis)
+skewness_value <- skewness(bootstrap_var)
+kurtosis_value <- kurtosis(bootstrap_var)
+
+# Mostrar resultados
+#list(
+#  Anderson_Darling_p_value = ad_test$p.value,
+#  Cramer_von_Mises_p_value = cvm_test$p.value,
+#  Lilliefors_p_value = lillie_test$p.value,
+#  DAgostino_Pearson_Skewness = skewness_value,
+#  DAgostino_Pearson_Kurtosis = kurtosis_value
+#)
+
+tabla_tests <- tibble(
+  Test = c(
+    "Anderson-Darling p-valor",
+    "Cramer-von Mises p-valor",
+    "Lilliefors p-valor",
+    "D’Agostino-Pearson Skewness",
+    "D’Agostino-Pearson Kurtosis"
+  ),
+  
+  Resultado = c(
+    ad_test$p.value,
+    cvm_test$p.value,
+    lillie_test$p.value,
+    skewness_value,
+    kurtosis_value
+  ),
+  
+  Interpretacion = c(
+    ifelse(ad_test$p.value < 0.01,
+           "Se rechaza la normalidad, pues valor-p < 0.01.",
+           "No se rechaza la normalidad."),
+    
+    ifelse(cvm_test$p.value < 0.01,
+           "Se rechaza la normalidad, pues valor-p < 0.01.",
+           "No se rechaza la normalidad."),
+    
+    ifelse(lillie_test$p.value < 0.01,
+           "Se rechaza la normalidad, pues valor-p < 0.01.",
+           "No se rechaza la normalidad."),
+    
+    ifelse(abs(skewness_value) < 0.5,
+           "Indica que la distribución es casi simétrica.",
+           "Indica presencia de asimetría."),
+    
+    ifelse(abs(kurtosis_value - 3) < 0.5,
+           "Es cercano a 3, lo que sugiere colas similares a la normal.",
+           "Las colas difieren de una distribución normal.")
+  )
+)
+
+knitr::kable(
+  tabla_tests,
+  digits = 6,
+  caption = "Resultados de tests de normalidad y medidas de simetría",
+  format = "html"
+) %>%
+  kable_styling(
+    bootstrap_options = c("bordered", "striped", "hover"),
+    full_width = FALSE,
+    font_size = 11
+  )
+```
+En la tabla \@ref(tab:TestNormalBootstrap), los tres tests de normalidad (Anderson-Darling, Cramer-von Mises y Lilliefors) tienen valor−p menores a 0.01, lo que significa que se rechaza la hipótesis nula de normalidad. Por otro lado los valores de asimetría y curtosis están dentro del rango esperado para una distribución normal, sugieren que la distribución de las varianzas bootstrap es aproximadamente normal.
+ 
+En conclusion, los resultados de los intervalos bootstrap (Percentil, Normal y BCa) son muy similares al intervalo paramétrico basado en la distribución t. Dado que las pruebas de normalidad paramétricas no rechazan la hipótesis de normalidad y el gráfico Q-Q respalda esta suposición, el intervalo paramétrico es apropiado para este problema.
+
+Los intervalos bootstrap confirman la estabilidad de la estimación, mostrando valores muy cercanos al intervalo paramétrico. En particular, el intervalo BCa es ligeramente más ajustado debido a su corrección por sesgo y aceleración. Todos los intervalos de bootstrap están incluidos dentro del intervalo paramétrico. Las pruebas de normalidad sobre bootstrap son muy sensibles lo que reduce su confiabilidad además la prueba de normalidad paramétrica con n=20 es más confiable.
