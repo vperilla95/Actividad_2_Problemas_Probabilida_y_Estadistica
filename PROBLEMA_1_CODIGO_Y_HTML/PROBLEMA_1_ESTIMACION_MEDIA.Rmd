@@ -1,0 +1,359 @@
+---
+title: "Actividad 2 - Problema 1: Estimación de la probabilidad y la media"
+subtitle: "Métodos de Simulación Estadística - Maestría en Ciencia de Datos - Pontificia Universidad Javeriana Cali"
+author: "Carolina Marin Ortiz - Victor Hugo Perilla Martinez"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    theme: cosmo
+    css: estilo.css
+---
+# Índice
+
+1. Índice
+
+2. Problema 1: Estimación de la probabilidad y la media
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, comment = "",   dev = "svg" )
+```
+
+```{r instalacion_librerias, echo=FALSE, warning=FALSE, message=FALSE, results='hide', comment = "" }
+
+paquetes <- c("knitr", "tidyverse", "broom", "infer", "boot" )
+
+for (paquete in paquetes){
+  if (!require(paquete, character.only = TRUE)) {
+    install.packages(paquete)
+    library(paquete, character.only = TRUE)
+  } else {
+    library(paquete, character.only = TRUE)
+  }
+}
+library(knitr)
+library(tidyverse)
+library(broom)
+library(infer)
+library(boot)
+```
+
+```{r librerias, include=FALSE}
+library(readxl)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(naniar)
+library(VIM)
+library(scales)
+library(patchwork)
+```
+
+# Problema 1: Estimación de la probabilidad y la media
+
+Una empresa de servicio técnico recibe, en promedio, 5 solicitudes de reparación por hora. Suponiendo que el número de solicitudes sigue una distribución de Poisson, realiza las siguientes actividades:
+
+## Cálculo de probabilidad teórica:
+
+-   Calcula la probabilidad de que en una hora lleguen exactamente 3 solicitudes usando la fórmula de la distribución de Poisson. Expresa el resultado como P(X=3)
+
+De acuerdo con la distribución de Poisson: $$P(X = k) = \frac{e^{-\lambda} \cdot \lambda^k}{k!}$$ Donde $\lambda = 5$ y $k = 3$, se obtiene que:
+
+```{r}
+# De acuerdo a la formula del modelo de Poisson se obtiene que: 
+lambda <- 5   # Promedio de eventos por intervalo = promedio de solicitudes por hora = 5
+k <- 3        # Número de eventos que se quieren calcular = 3 solicitudes por hora
+
+# Se aplica la fórmula de Poisson paso a paso
+numerador <- exp(-lambda) * lambda^k   # e^(-5) * 5^3
+denominador <- factorial(k)             # 3! = 6
+
+probabilidad <- numerador / denominador
+
+# Resultado 
+cat("P(X = 3) =", probabilidad)
+```
+
+La probabilidad de que en la empresa de servicio técnico reciba exactamente 3 solicitudes en una hora es de 14,04%.
+
+## Simulación con una muestra:
+
+-   Genera una muestra aleatoria de tamaño n=1,000 con rpois(n, lambda = 5).
+-   Calcula la frecuencia relativa para X=3 (fn(X=3))
+-   Compara e interpreta el resultado frente a la probabilidad teórica.
+
+```{r}
+# Se procede a fijar la semilla de reproducibilidad 
+set.seed(42)
+
+# Se Genera la muestra aleatoria de tamaño n=1.000 
+lambda <- 5
+n <- 1000
+muestra <- rpois(n, lambda = lambda)
+```
+
+```{r}
+# Se calcula la frecuencia relativa para X = 3
+freq_relativa <- sum(muestra == 3) / n
+cat("Frecuencia relativa fn(X=3) =", freq_relativa)
+```
+
+La frecuencia relativa calculada como $$f_n(X=3) = \frac{n_k}{n} = \frac{`r sum(muestra == 3)`}{`r n`} = `r freq_relativa`$$
+
+Tal como se puede observar, para una muestra aleatoria de 1,000 horas simuladas, la frecuencia relativa es de 15,1%. Es decir, en 151 de esas horas llegaron exactamente 3 solicitudes de soporte técnico.
+
+```{r}
+# Comparación con la probabilidad teórica
+prob_teorica <- dpois(x = 3, lambda = lambda)
+cat("\nProbabilidad teórica P(X=3) =", prob_teorica)
+```
+
+```{r}
+# Diferencia entre la probalidad teóricca y la probabilidad relativa
+cat("\nDiferencia =", abs(prob_teorica - freq_relativa))
+```
+
+Al comparar la probabilidad teórica que una empresa de soporte técnico reciba 3 solicitudes por hora contra la probabilidad relativa de que en esas 1.000 horas simuladas este mismo evento ocurra, se obtiene una diferencia de apenas 1,06%.
+
+La cual se expresa de la siguente manera: $|P(X=3) - f_n(X=3)| = 0.0106$, confirmando la Ley de los Grandes Números: $f_n(X) \rightarrow P(X)$ cuando $n \rightarrow \infty$
+
+Esta proximidad entre ambos valores de las probabilidades corrobora la Ley de los Grandes Números, la cual establece que a medida que aumenta el número de repeticiones n, la frecuencia relativa observada tiende a converger hacia la probabilidad teórica.
+
+## Análisis de la variabilidad entre muestras:
+
+-   Genera 100 muestras aleatorias de tamaño n=1,000
+-   Calcula la frecuencia relativa para X=3 en cada muestra.
+-   Construye un gráfico de dispersión: Eje X: Indexación por cada muestra (1 a 100). Eje Y: Frecuencias relativas fn(X=3)
+-   Dibuja una línea horizontal en P(X=3) y comenta si existe una tendencia.
+
+```{r}
+# Se determina la semilla para reproducibilidad
+set.seed(42)
+# Definición de los parámetros de la distribución Poisson
+lambda <- 5  #Valor esperado  (λ)
+n <- 1000 # Tamaño de cada muestra
+num_muestras <- 100 # Número de las muestras a generar
+prob_teorica <- dpois(x = 3, lambda = lambda)
+```
+
+```{r}
+# Generar 100 muestras y calcular frecuencia relativa en cada una
+frecuencias <- sapply(1:num_muestras, function(i) {
+  muestra <- rpois(n, lambda = lambda)
+  sum(muestra == 3) / n
+})
+```
+
+Para cada muestra $i$, se calcula:
+$$f_n(X=3) = \frac{n_k}{n}, \quad i = 1, 2, \ldots, 100$$
+
+```{r}
+# Crear un data frame con la muestra
+df_muestras <- data.frame(
+  muestra = 1:num_muestras,
+  freq_relativa = frecuencias
+)
+```
+
+
+
+```{r}
+#Crear el gráfico de dispersión 
+ggplot(df_muestras, aes(x = muestra, y = freq_relativa)) +
+  geom_point(color = "#FF7F00", size = 2) +
+  geom_hline(yintercept = prob_teorica, color = "red", 
+             linetype = "dashed", linewidth = 1) +
+  scale_x_continuous(breaks = seq(1, 100, by = 10)) +
+  scale_y_continuous(limits = c(0.10, 0.18), 
+                     breaks = seq(0.10, 0.18, by = 0.02)) +
+  labs(title = "Figura 1. Variabilidad de frecuencias relativas fn(X=3) - 100 muestras",
+       x = "Indice de muestra (1 a 100)",
+       y = "Frecuencia relativa fn(X=3)",
+       caption = paste("Linea roja: P(X=3) =", round(prob_teorica, 4))) +
+  theme_minimal()
+```
+
+```{r, results='hide'}
+# Se decide verificar la tendencia a traves de una regresión lineal simple. Esto se utiliza solo como mecanismo de verificación de la interpretación de la tendencia en el gráfico de dispersión, motivo por el cual no se incluye en el informe. 
+modelo <- lm(freq_relativa ~ muestra, data = df_muestras)
+summary(modelo)
+
+
+```
+
+Tal como se puede observar en la figura 1, las frecuencias relativas calculadas en las 100 muestras simuladas no presentan una tendencia definida. Estas se distribuyen de manera aleatoria sobre o por debajo de la línea roja que representa la probabilidad teórica P (X=3) = 0,1404, confirmando que las frecuencias relativas obtenidas en cada muestra convergen hacia el valor teórico esperado.
+
+## Impacto del tamaño muestral:
+
+-   Genera muestras aleatorias con tamaños: 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900 y 1,000. Agrega valores si consideras que mejora el análisis de los resultados.
+-   Calcula la frecuencia relativa de X=3 para cada tamaño.
+-   Construye un gráfico de dispersión: Eje X: Indexación (1 al 20) por cada tamaño muestral.
+-   Eje Y: Frecuencias relativas fn(X=3).
+-   Dibuja la línea en P(X=3) y describe si aparece una tendencia.
+
+. 
+```{r}
+# Se determina la semilla para reproducibilidad
+set.seed(42)
+# Definición de los parámetros de la distribución Poisson
+lambda <- 5 #Valor esperado  (λ)
+prob_teorica <- dpois(x = 3, lambda = lambda)
+
+# Tamaños muestrales
+tam_muestras <- c(5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 
+              100, 200, 300, 400, 500, 600, 700, 800, 900, 1000)
+```
+Para cada muestra $i$, se calcula:
+$$f_n(X=3) = \frac{n_k}{n}, \quad i = 1, 2, \ldots, 100$$
+Donde $n_k$ es el número de veces que se observaron exactamente 3 solicitudes en cada muestra
+```{r}
+# Calcular frecuencia relativa para cada uno de los 20 tamaños muestrales
+frecuencias_tam <- sapply(tam_muestras, function(n) {
+  muestra <- rpois(n, lambda = lambda)
+  sum(muestra == 3) / n
+})
+```
+
+```{r}
+# Crear dataframe 
+df_tam_muestrales <- data.frame(
+  indice = 1:length(tam_muestras),
+  tam_muestras = tam_muestras,
+  freq_relativa = frecuencias_tam
+)
+```
+
+```{r}
+ggplot(df_tam_muestrales, aes(x = indice, y = freq_relativa)) +
+  geom_point(color = "#FF7F00", size = 3) +
+  geom_hline(yintercept = prob_teorica, color = "red",
+             linetype = "dashed", linewidth = 1) +
+  scale_x_continuous(breaks = 1:20,
+                     labels = tam_muestras) +
+  labs(title = "Figura 2: Impacto del tamano muestral en fn(X=3)",
+       x = "Tamano muestral",
+       y = "Frecuencia relativa fn(X=3)",
+       caption = paste("Linea roja: P(X=3) =", round(prob_teorica, 4))) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+La figura 2, evidencia el impacto del tamaño muestral sobre la frecuencia relativa fn(X=3). Allí se observa como a medida que aumenta el tamaño de la muestra los valores convergen hacia la probabilidad teórica $P(X=3) = 0.1404$ y que cuando $n \rightarrow \infty$, $f_n(X=3) \rightarrow P(X=3)$, reflejando una tendencia de convergencia estocástica: a mayor n, menor variabilidad y mayor proximidad al valor teórico (fundamento matemático de la Ley de números grandes). Es decir, con tamaños pequeños que se ubican dentro del rango n=5 a n=100, las frecuencias relativas presentan una alta variabilidad y oscilando entre valores extremos como 0.00 y 0.25. A partir de n=300, los puntos comienzan a estabilizarse progresivamente alrededor de la línea roja, y para n=700 a n=1,000 la frecuencia relativa se mantiene próxima a 0.1404 (valor teórico)
+
+## Convergencia de la media muestral:
+
+-   Genera 100 muestras de tamaño n=1,000.
+-   Calcula el promedio muestral de solicitudes en cada muestra.
+-   Construye un gráfico de dispersión: Eje X: Indexación por cada muestra (1 a 100).
+-   Eje Y: Promedios muestrales.
+-   Traza la línea horizontal en la media teórica (λ) y analiza la tendencia.
+
+Para la distribución Poisson, la media teórica está dada por:
+$$E(X) = \lambda = 5$$
+```{r}
+# Se determina la semilla para reproducibilidad
+set.seed(42)
+# Definición de los parámetros de la distribución Poisson
+lambda <- 5 #E(X) = λ = 5 En la distribución Poisson
+n <- 1000 #Tamaño de la muestra (horas simuladas)
+num_muestras <- 100 #Número de muestras (conjunto de 100 horas simuladas cada uno)
+
+# Se procede a generar las muestras y calcular los promedio de cada una. 
+promedios <- sapply(1:num_muestras, function(i) {
+  muestra <- rpois(n, lambda = lambda)
+  mean(muestra)
+})
+```
+
+```{r}
+# Crear dataframe con índice y promedios muestrales
+df_promedios <- data.frame(
+  muestra = 1:num_muestras,
+  promedio = promedios
+)
+```
+
+```{r}
+ggplot(df_promedios, aes(x = muestra, y = promedio)) +
+  geom_point(color = "#FF7F00", size = 2) +
+  geom_hline(yintercept = lambda, color = "red",
+             linetype = "dashed", linewidth = 1) +
+  scale_x_continuous(breaks = seq(1, 100, by = 10)) +
+  scale_y_continuous(limits = c(4.5, 5.5),
+                     breaks = seq(4.5, 5.5, by = 0.1)) +
+  labs(title = "Figura 3. Convergencia de la media muestral - 100 muestras",
+       x = "Indice de muestra (1 a 100)",
+       y = "Promedio muestral",
+       caption = paste("Linea roja: media teorica lambda =", lambda)) +
+  theme_minimal()
+```
+
+La figura 3, permite visualizar el promedio muestral de las solicitudes de reparación que recibe la empresa de servicio técnico a lo largo de las 100 muestras simuladas. Con base a las propiedades de la distribución Poisson, se obtiene que la media teórica es = $E(X) = \lambda = 5$ solicitudes por hora, es decir, 5 solicitudes por hora que la empresa recibe en promedio.
+
+Se observa que los promedio muestrales oscilan en un rango cercano a la media teórica λ=5, entre 4.8 y 5.2 solicitudes por hora; a diferencia del ejercicio anterior donde los tamaños muestrales pequeños generaban alta variabilidad, aquí todos los promedios son estables desde la primera muestra, lo cual se explica porque todas las muestras tienen el mismo tamaño n=1,000.
+
+Este comportamiento es consistente con la Ley de los Grandes Números:
+$$\bar{X}_n \xrightarrow{p} E(X) = \lambda = 5 \quad \text{cuando} \quad n \rightarrow \infty$$
+## Impacto del tamaño muestral en la media:
+
+Genera muestras aleatorias con tamaños: 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900 y 1,000. Agrega valores si consideras que mejora el análisis de los resultados.
+
+  * Calcula el promedio muestral para cada tamaño.
+  * Construye un gráfico de dispersión: Eje X: Indexación (1 al 20) por cada tamaño       muestral. Eje Y: Promedios muestrales.
+  * Dibuja la línea horizontal en la media teórica (λ) y compara si el promedio se        aproxima a medida que crece el tamaño.
+
+El promedio muestral para cada tamaño $n$ se calcula como:
+$$\bar{X}_n = \frac{1}{n}\sum_{i=1}^{n} X_i$$
+donde se espera que $\bar{X}_n \rightarrow \lambda = 5$ a medida que $n$ crece.
+
+```{r}
+set.seed(42)
+
+# Calcular promedio muestral para cada tamaño
+promedios_tam <- sapply(tam_muestras, function(n) {
+  muestra <- rpois(n, lambda = lambda)
+  mean(muestra)
+})
+```
+
+```{r}
+# Crear dataframe con tamaños y promedios muestrales
+df_promedios_tam <- data.frame(
+  indice = 1:length(tam_muestras),
+  tamanio = tam_muestras,
+  promedio = promedios_tam
+)
+```
+
+```{r}
+ggplot(df_promedios_tam, aes(x = indice, y = promedio)) +
+  geom_point(color = "#FF7F00", size = 3) +
+  geom_hline(yintercept = lambda, color = "red",
+             linetype = "dashed", linewidth = 1) +
+  scale_x_continuous(breaks = 1:20,
+                     labels = tam_muestras) +
+  scale_y_continuous(limits = c(0, 8),
+                     breaks = seq(0, 8, by = 1)) +
+  labs(title = "Figura 4. Impacto del tamanio muestral en la media muestral",
+       x = "Tamanio muestral",
+       y = "Promedio muestral",
+       caption = paste("Linea roja: media teorica lambda =", lambda)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+La Figura 4 evidencia el impacto que tiene el tamaño muestral sobre el promedio 
+de las solicitudes de reparación por hora, donde el promedio muestral se calcula como:
+
+$$\bar{X}_n = \frac{1}{n}\sum_{i=1}^{n} X_i$$
+
+Tal como se puede observar, con muestras pequeñas como $n=5$, el promedio puede 
+alejarse considerablemente del valor teórico $\lambda = 5$, alcanzando un valor de 
+casi 7 solicitudes por hora. A partir de $n=50$, los promedios empiezan a reducir 
+su variabilidad, estabilizándose progresivamente alrededor de la media teórica 
+$E(X) = \lambda = 5$, confirmando que:
+
+$$\bar{X}_n \xrightarrow{p} \lambda = 5 \quad \text{cuando} \quad n \rightarrow \infty$$
+con una varianza que disminuye según $Var(\bar{X}_n) = \frac{\lambda}{n} = \frac{5}{n}$
