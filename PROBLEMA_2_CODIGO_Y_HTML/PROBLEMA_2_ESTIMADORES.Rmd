@@ -1,0 +1,459 @@
+---
+title: "Actividad 2 - Problema 2 - Propiedades de los estimadores en R"
+subtitle: "Métodos y Simulación Estadística - Maestría en Ciencia de Datos - Pontificia Universidad Javeriana Cali"
+author: "- Carolina Marin Ortiz - Victor Hugo Perilla Martinez"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: cosmo
+    code_folding: hide
+lang: es
+encoding: UTF-8
+---
+
+# Índice
+
+1. Índice
+2. Problema 2
+3. Solución
+
+
+# Problema 2
+
+## Enunciado completo
+
+Un centro de atención médica registra el tiempo de espera (en minutos) de los pacientes antes de ser atendidos. Se sabe que estos tiempos siguen una distribución Gamma con parámetros conocidos \(\alpha = 3\) (forma) y \(\sigma = 2\) (escala). El parámetro que se supone desconocido en este problema es la media poblacional \(\mu = \alpha \sigma\).
+
+Sea \(X_1, X_2, \ldots, X_n\) una muestra aleatoria de tamaño \(n\) independiente e idénticamente distribuida extraída de esta población. Se proponen los siguientes estimadores para \(\mu\):
+
+1. **Estimador 1**
+
+$$
+\hat{\mu}_1 = \frac{1}{n}\sum_{i=1}^{n} X_i
+$$
+
+2. **Estimador 2**
+
+$$
+\hat{\mu}_2 = \frac{\min(X_1,\ldots,X_n) + \max(X_1,\ldots,X_n)}{2}
+$$
+
+3. **Estimador 3**
+
+$$
+\hat{\mu}_3 = X_{(1)} = \min(X_1,\ldots,X_n)
+$$
+
+4. **Estimador 4**
+
+$$
+\hat{\mu}_4 = \frac{1}{n+1}\sum_{i=1}^{n} X_i
+$$
+
+## Actividades solicitadas
+
+### a. Simulación de estimadores
+
+- Genera 100 muestras de tamaño \(n = 10\) de una distribución Gamma con parámetros \(\alpha = 3\) y \(\sigma = 2\). Utiliza la función `rgamma(n, shape = alpha, scale = sigma)` de R y establece una semilla, por ejemplo `set.seed(123)`, para asegurar la reproducibilidad.
+- Para cada muestra, calcula los estimadores correspondientes. Luego, grafica los resultados utilizando una curva de densidad o un histograma de densidades para cada estimador.
+- Realiza una interpretación de los gráficos obtenidos.
+
+### b. Insesgadez
+
+- Mediante una simulación computacional, estima la media de cada estimador y compárala con el valor verdadero de la media poblacional.
+- Realiza un análisis utilizando gráficos y las estadísticas pertinentes para determinar cuál de los estimadores es el menos sesgado.
+
+### c. Consistencia
+
+- Mediante una simulación computacional, incrementa el tamaño muestral desde \(n = 10\) hasta \(n = 1000\), utilizando unos valores representativos como 5, 10, 20, 30, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, entre otros.
+- Grafica cómo cambia la variabilidad relativa de los estimadores a medida que aumenta el tamaño muestral.
+- Realiza un análisis utilizando gráficos y las estadísticas necesarias para evaluar la consistencia de los estimadores.
+
+### d. Eficiencia
+
+- Mediante una simulación computacional, calcula la varianza muestral y el coeficiente de variación de cada estimador, y compáralos.
+- Realiza un análisis utilizando gráficos y las estadísticas pertinentes para determinar cuál de los estimadores es el más eficiente.
+
+
+# Solución
+
+```{r librerias, echo=FALSE, results='hide', message=FALSE, warning=FALSE, results='hide' }
+paquetes <- c("ggplot2", "dplyr","tidyr", "tibble","purrr", "knitr", "kableExtra","bookdown")
+for (p in paquetes) {
+  if (!require(p, character.only = TRUE)) {
+    install.packages(p, repos = "https://cloud.r-project.org")
+    library(p, character.only = TRUE)
+  } else {
+    library(p, character.only = TRUE)
+  }
+}
+```
+
+## 1. Parámetros del problema y funciones de los estimadores
+
+Si tenemos una distribución Gamma con forma \(\alpha = 3\) y escala \(\sigma = 2\), la media poblacional que tomamos como verdadera es la siguiente:
+
+$$
+\mu = \alpha\sigma = 3 \times 2 = 6
+$$
+
+Podemos también calcular la varianza poblacional de la forma siguiente:
+
+$$
+\text{Var}(X) = \alpha\sigma^2 = 3(2^2) = 12
+$$
+
+Los parametros para este problema son los mostrados en la Tabla \@ref(tab:parametros)
+```{r parametros}
+alpha <-3
+sigma <- 2
+mu_verdadera <- alpha *sigma
+var_poblacional <- alpha * sigma^2
+seed <- 456
+n_base <- 10
+B_graficos <- 100
+B_sim <- 10000
+
+estimador1 <- function(x) mean(x)
+estimador2 <- function(x) (min(x)+max(x)) / 2
+estimador3 <- function(x) min(x)
+estimador4 <- function(x) sum(x) / (length(x) + 1)
+
+#estimadores <- list(
+#  "Estimador 1" = estimador1,
+#  "Estimador 2" = estimador2,
+#  "Estimador 3" = estimador3,
+#  "Estimador 4" = estimador4
+#)
+
+tabla_parametros <- tibble(
+  Parámetro = c("Forma alpha","Escala sigma", "Media verdadera mu", "Varianza poblacional","Semilla", "n base","Simulaciones para gráficas", "Simulaciones para análisis"),
+  Valor = c(alpha, sigma, mu_verdadera, var_poblacional, seed, n_base, B_graficos, B_sim)
+)
+
+knitr::kable(
+  tabla_parametros,
+  caption = "Constantes utilizadas en el desarrollo del problema.",
+  digits = 4,
+  format = "html"
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  )
+```
+
+Para facilitar las simulaciones, construimos una función que genere una muestra Gamma y calcule los cuatro estimadores, esto ayudará al proceso de datos.
+
+```{r funcionAuxiliar}
+calcular_estimadores <- function(n, alpha = 3, sigma = 2) {
+  x <- rgamma(n, shape = alpha, scale = sigma)
+  tibble(
+    `Estimador 1` = estimador1(x),
+    `Estimador 2` = estimador2(x),
+    `Estimador 3` = estimador3(x),
+    `Estimador 4` = estimador4(x)
+  )
+}
+```
+
+## 2. Simulación de estimadores
+
+Para el proceso se generan 100 muestras de tamaño `(n=10)` y calculamos los cuatro estimadores en cada una. El análisis estadistico descripivo se ve en la Tabla \@ref(tab:simulacion100).
+
+```{r simulacion100}
+set.seed(seed)
+res_100 <- map_dfr(1:B_graficos, ~ calcular_estimadores(n = n_base, alpha = alpha, sigma = sigma), .id = "Muestra") |>
+  mutate(Muestra = as.integer(Muestra))
+
+res_100_largo <- res_100 |>
+  pivot_longer(cols = starts_with("Estimador"), names_to = "Estimador", values_to = "Valor")
+
+resumen_100 <- res_100_largo |>
+  group_by(Estimador) |>
+  summarise(
+    Media = mean(Valor),
+    DesvEst = sd(Valor),
+    Min = min(Valor),
+    Max = max(Valor),
+    .groups = "drop"
+  )
+
+knitr::kable(
+  resumen_100,
+  caption = "Resumen descriptivo de los estimadores con 100 muestras de tamaño 10.",
+  digits = 4,
+  format = "html"
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  )
+```
+
+```{r graficoDensidades100, fig.cap="Distribución empírica de los cuatro estimadores a partir de 100 muestras de tamaño n = 10.", fig.width=10, fig.height=8}
+ggplot(res_100_largo, aes(x = Valor, fill = Estimador, color = Estimador)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 15, alpha = 0.25, position = "identity") +
+  geom_density(linewidth = 1, alpha = 0.4) +
+  
+  # media verdadera
+  geom_vline(xintercept = mu_verdadera, linetype = "dashed", linewidth = 1) +
+  
+  # media del estimador
+  geom_vline(data = resumen_100,
+             aes(xintercept = Media),
+             color = "orange",
+             linewidth = 1) +
+  
+  facet_wrap(~ Estimador, scales = "free", ncol = 2) +
+  
+  labs(
+    title = "Simulación de estimadores con 100 muestras",
+    subtitle = paste0("Línea punteada: media verdadera = ", mu_verdadera,
+                      " | Línea naranja: media del estimador"),
+    x = "Valor del estimador",
+    y = "Densidad"
+  ) +
+  
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+### Interpretación de las gráficas de histograma y densidad
+
+A partir de la Figura \@ref(fig:graficoDensidades100), se observa lo siguiente:
+
+- **Estimador 1**: se concentra alrededor de 6 y presenta una dispersión moderada. Visualmente se comporta como un estimador razonable de la media siendo el más cercano.
+- **Estimador 2**: muestra mayor variabilidad, debido a que depende solo del mínimo y del máximo. Al involucrar el máximo, resulta sensible a colas largas de la Gamma, muestra estimar la media por encima del valor esperado por lo cual no es tan preciso y exacto.
+- **Estimador 3**: toma siempre el valor mínimo muestral, por eso queda muy por debajo de la media verdadera. Desde esta primera gráfica ya se aprecia un sesgo fuerte hacia abajo.
+- **Estimador 4**: esta versión es una escala de la suma muestral. Su distribución es parecida a la del estimador 1, pero desplazada ligeramente hacia la izquierda, porque divide por `(n+1)` en vez de `(n)`.
+
+En esta primera parte, los estimadores que lucen más cercanos a \(mu=6\) son \(\hat{\mu}_1\) y \(\hat{\mu}_4\), aunque el cuarto parece subestimar un poco. Se deben evaluzar otras bondades de cada estimador para entender su funcionamiento por loc ual seguimos con la Insesgadez.
+
+## 3. Insesgadez
+
+Para evaluar la insesgadez, realizamos 10.000 simulaciones con `(n=10)` y calculamos la media empírica, el sesgo y el sesgo absoluto de cada estimador.
+
+```{r insesgadezSim}
+set.seed(seed)
+res_ins <- map_dfr(1:B_sim, ~ calcular_estimadores(n = n_base, alpha = alpha, sigma = sigma)) |>
+  pivot_longer(cols = everything(), names_to = "Estimador", values_to = "Valor")
+
+tabla_insesgadez <- res_ins |>
+  group_by(Estimador) |>
+  summarise(
+    Media_Estimada = mean(Valor),
+    Sesgo = mean(Valor) - mu_verdadera,
+    Sesgo_Absoluto = abs(Sesgo),
+    Varianza = var(Valor),
+    .groups = "drop"
+  ) |>
+  arrange(Sesgo_Absoluto)
+
+knitr::kable(
+  tabla_insesgadez,
+  caption = "Evaluación de insesgadez por simulación con 10.000 repeticiones y n = 10.",
+  digits = 5,
+  format = "html"
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  )
+```
+
+```{r graficoInsesgadez, fig.cap="Medias empíricas de los estimadores frente al valor verdadero de la media poblacional.", fig.width=9, fig.height=6}
+ggplot(tabla_insesgadez, aes(x = reorder(Estimador, Media_Estimada), y = Media_Estimada, fill = Estimador)) +
+  geom_col(alpha = 0.8) +
+  geom_hline(yintercept = mu_verdadera, linetype = "dashed", linewidth = 1) +
+  coord_flip() +
+  labs(
+    title = "Comparación de medias empíricas",
+    subtitle = paste0("Línea punteada: mu verdadera = ", mu_verdadera),
+    x = "Estimador",
+    y = "Media empírica"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+### Análisis de insesgadez
+
+Los resultados muestran la tabla \@ref(tab:insesgadezSim) y la grafica \@ref(fig:graficoInsesgadez) que:
+
+- **\(\hat{\mu}_1\)** es el estimador menos sesgado y su media empírica queda prácticamente sobre el valor verdadero \(mu=6\). Esto coincide con la teoría, pues la media muestral es insesgada para la media poblacional.
+- **\(\hat{\mu}_4\)** presenta sesgo negativo. De hecho,
+
+$$
+E\left(\hat{\mu}_4\right) = E\left(\frac{1}{n+1}\sum_{i=1}^{n}X_i\right) = \frac{n}{n+1}\mu
+$$
+
+por lo que se observa que lo subestima sistemáticamente a `(mu)`.
+
+- **\(\hat{\mu}_3\)** tiene un sesgo muy alto hacia abajo, porque el mínimo muestral es mucho menor que la media.
+- **\(\hat{\mu}_2\)** no resulta insesgado en esta distribución y presenta un desplazamiento apreciable respecto de 6.
+
+Por lo tanto con lo calculado, el **estimador menos sesgado** es **\(\hat{\mu}_1\)**.
+
+## 4. Consistencia
+
+Para verificar la consistencia de cada estimador, repetimos las simulaciones para varios tamaños muestrales y observamos lo que pasa con el promedio, la varianza, el coeficiente de variación y el error cuadrático medio (MSE) de cada estimador, para entender su funcionamiento. 
+
+```{r consistenciaSIM}
+n_values <- c(5, 10, 20, 30, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 800, 1000)
+
+simular_por_n <- function(n, B = 5000, alpha = 3, sigma = 2) {
+  reps <- map_dfr(1:B, ~ calcular_estimadores(n = n, alpha = alpha, sigma = sigma)) |>
+    pivot_longer(cols = everything(), names_to = "Estimador", values_to = "Valor")
+
+  reps |>
+    group_by(Estimador) |>
+    summarise(
+      n = n,
+      Media = mean(Valor),
+      Varianza = var(Valor),
+      DesvEst = sd(Valor),
+      CV = sd(Valor) / abs(mean(Valor)),
+      MSE = mean((Valor - mu_verdadera)^2),
+      .groups = "drop"
+    )
+}
+
+set.seed(seed)
+res_consistencia <- map_dfr(n_values, simular_por_n)
+
+knitr::kable(
+  head(res_consistencia, 12),
+  caption = "Primeras filas de la tabla de consistencia (se muestran 12 filas como vista previa).",
+  digits = 5,
+  format = "html"
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  )
+```
+
+```{r graficoCVconsistencia, fig.cap="Coeficiente de variación de los estimadores a medida que aumenta el tamaño muestral.", fig.width=9, fig.height=6}
+ggplot(res_consistencia, aes(x = n, y = CV, color = Estimador)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_x_log10() +
+  labs(
+    title = "Consistencia: coeficiente de variación vs tamaño muestral",
+    x = "Tamaño de muestra (escala log10)",
+    y = "Coeficiente de variación"
+  ) +
+  theme_minimal()
+```
+
+```{r graficoMediaConsistencia, fig.cap="Promedio empírico de cada estimador frente al valor verdadero de la media.", fig.width=9, fig.height=6}
+ggplot(res_consistencia, aes(x = n, y = Media, color = Estimador)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  geom_hline(yintercept = mu_verdadera, linetype = "dashed", linewidth = 1) +
+  scale_x_log10() +
+  labs(
+    title = "Consistencia: promedio empírico de los estimadores",
+    subtitle = paste0("Línea punteada: mu verdadera = ", mu_verdadera),
+    x = "Tamaño de muestra (escala log10)",
+    y = "Promedio del estimador"
+  ) +
+  theme_minimal()
+```
+
+```{r graficoMSEconsistencia, fig.cap="Error cuadrático medio de los estimadores según el tamaño de muestra.", fig.width=9, fig.height=6}
+ggplot(res_consistencia, aes(x = n, y = MSE, color = Estimador)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  scale_x_log10() +
+  labs(
+    title = "Consistencia: MSE según el tamaño de muestra",
+    x = "Tamaño de muestra (escala log10)",
+    y = "MSE"
+  ) +
+  theme_minimal()
+```
+
+### Análisis de consistencia
+
+La consistencia se evalúa observando si, cuando \(n\) crece, el estimador se acerca a \(\mu\) y su variabilidad disminuye.
+
+Los gráficos \@ref(fig:graficoCVconsistencia, \@ref(fig:graficoMediaConsistencia), \@ref(fig:graficoMSEconsistencia) muestran lo siguiente:
+
+- **\(\hat{\mu}_1\)**: su media permanece cerca de 6 y tanto su varianza como su CV y su MSE disminuyen con \(n\). Por lo tanto, **sí es consistente**.
+- **\(\hat{\mu}_4\)**: aunque es sesgado para muestras finitas, su media se acerca cada vez más a 6 y su variabilidad también cae. Como
+
+$$
+\hat{\mu}_4 = \frac{n}{n+1}\bar{X}
+$$
+
+y \(\bar X \to \mu\), entonces **también es consistente**.
+
+- **\(\hat{\mu}_3\)**: al ser el mínimo muestral, tiende hacia valores cercanos a 0 cuando \(n\) crece. Su promedio no converge a 6 lo cual ya muestra ineficiencia del estimador, así que **no es consistente** para la media.
+- **\(\hat{\mu}_2\)**: depende del mínimo y del máximo. En una distribución Gamma, el máximo crece con el tamaño muestral y el mínimo tiende a 0, de modo que el punto medio entre ambos no se estabiliza alrededor de 6 mostrando su deficiencia como estimador. En la simulación se observa que no converge a ** \(\mu\)**, por lo cual **no es consistente**.
+
+Con estos resultados podemos observar que los únicos estimadores consistentes para la media en este problema son **\(\hat{\mu}_1\)** y **\(\hat{\mu}_4\)**.
+
+## 5. Eficiencia
+
+La eficiencia se compara usando la varianza y el coeficiente de variación. Como la eficiencia clásica se define dentro de la clase de estimadores insesgados, conviene interpretar los resultados con cuidado: un estimador puede tener baja varianza, pero si es sesgado no necesariamente debe preferirse porque tiene que cumplir el mayor equilibrio entre varianza y sesgo.
+
+```{r eficiencian10}
+tabla_eficiencia <- res_consistencia |>
+  filter(n == n_base) |>
+  select(Estimador, Media, Varianza, CV, MSE) |>
+  arrange(Varianza)
+
+knitr::kable(
+  tabla_eficiencia,
+  caption = "Comparación de eficiencia para n = 10.",
+  digits = 5,
+  format = "html"
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  )
+```
+
+```{r graficoEficienciaVar, fig.cap="Varianza de los estimadores para n = 10.", fig.width=8, fig.height=5}
+ggplot(tabla_eficiencia, aes(x = reorder(Estimador, Varianza), y = Varianza, fill = Estimador)) +
+  geom_col(alpha = 0.85) +
+  coord_flip() +
+  labs(
+    title = "Comparación de varianzas para n = 10",
+    x = "Estimador",
+    y = "Varianza"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+### Análisis de eficiencia
+
+A partir de la tabla \@ref(tab:eficiencian10) y la figura \@ref(fig:graficoEficienciaVar), se puede observar lo siguiente:
+
+- **\(\hat{\mu}_4\)** suele presentar una varianza algo menor que \(\hat{\mu}_1\), pero esto ocurre porque está encogido hacia abajo y, por tanto, tiene sesgo lo que no es deseado.
+- **\(\hat{\mu}_1\)** mantiene una varianza baja y además su sesgo s muy bajo, por lo que es el mejor candidato desde el punto de vista de eficiencia entre estimadores.
+- **\(\hat{\mu}_2\)** y **\(\hat{\mu}_3\)** no resultan llamativos: son más inestables y/o sesgados para la estimación de la media.
+
+Si solo se comparara **varianza**, podría parecer atractivo \(\hat{\mu}_4\). Sin embargo, al considerar también el sesgo y el MSE, el estimador más recomendable para \(\mu\) es **\(\hat{\mu}_1 = \bar X\)**.
+
+## 6. Conclusiones 
+
+1. La media poblacional verdadera es \(\mu = 6\).
+2. En la simulación inicial con 100 muestras, \(\hat{\mu}_1\) y \(\hat{\mu}_4\) son los que se ubican más cerca de la media verdadera.
+3. El estimador **menos sesgado** es **\(\hat{\mu}_1\)**.
+4. Los estimadores **consistentes** son **\(\hat{\mu}_1\)** y **\(\hat{\mu}_4\)**.
+5. Bajo el el analisis de eficiencia para estimadores insesgados, el estimador más conveniente es **\(\hat{\mu}_1\)**.
+6. Por lo tanto teniendo en cuenta todos los resultados analizados, para estimar la media de una distribución Gamma \(\Gamma(3,2)\), la mejor opción entre los cuatro estimadores es la **media muestral** \(\hat{\mu}_1\).
