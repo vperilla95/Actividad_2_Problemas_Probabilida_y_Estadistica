@@ -387,7 +387,7 @@ ggplot(res_consistencia, aes(x = n, y = MSE, color = Estimador)) +
 
 La consistencia se evalúa observando si, cuando \(n\) crece, el estimador se acerca a \(\mu\) y su variabilidad disminuye.
 
-Los gráficos \@ref(fig:graficoCVconsistencia, \@ref(fig:graficoMediaConsistencia), \@ref(fig:graficoMSEconsistencia) muestran lo siguiente:
+Los gráficos \@ref(fig:graficoCVconsistencia), \@ref(fig:graficoMediaConsistencia), \@ref(fig:graficoMSEconsistencia) muestran lo siguiente:
 
 - **\(\hat{\mu}_1\)**: su media permanece cerca de 6 y tanto su varianza como su CV y su MSE disminuyen con \(n\). Por lo tanto, **sí es consistente**.
 - **\(\hat{\mu}_4\)**: aunque es sesgado para muestras finitas, su media se acerca cada vez más a 6 y su variabilidad también cae. Como
