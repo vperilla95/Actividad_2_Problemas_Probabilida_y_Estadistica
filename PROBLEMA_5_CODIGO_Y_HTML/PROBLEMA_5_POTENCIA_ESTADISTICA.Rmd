@@ -150,7 +150,7 @@ ggplot(results, aes(x = n, y = power, color = d)) +
   theme_minimal()
 ```
 
-# Comparación con otros niveles de significancia
+## Comparación con otros niveles de significancia
 
 ```{r comparaotrosNivelesSignificancia}
 compute_power <- function(alpha_val){
