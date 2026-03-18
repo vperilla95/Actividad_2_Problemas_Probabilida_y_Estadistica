@@ -234,7 +234,7 @@ A partir de la Figura \@ref(fig:graficoDensidades100), se observa lo siguiente:
 - **Estimador 3**: toma siempre el valor mínimo muestral, por eso queda muy por debajo de la media verdadera. Desde esta primera gráfica ya se aprecia un sesgo fuerte hacia abajo.
 - **Estimador 4**: esta versión es una escala de la suma muestral. Su distribución es parecida a la del estimador 1, pero desplazada ligeramente hacia la izquierda, porque divide por `(n+1)` en vez de `(n)`.
 
-En esta primera parte, los estimadores que lucen más cercanos a \(mu=6\) son \(\hat{\mu}_1\) y \(\hat{\mu}_4\), aunque el cuarto parece subestimar un poco. Se deben evaluzar otras bondades de cada estimador para entender su funcionamiento por loc ual seguimos con la Insesgadez.
+En esta primera parte, los estimadores que lucen más cercanos a \(mu=6\) son \(\hat{\mu}_1\) y \(\hat{\mu}_4\), aunque el cuarto parece subestimar un poco. Se deben evaluar otras bondades de cada estimador para entender su funcionamiento por loc ual seguimos con la Insesgadez.
 
 ## 3. Insesgadez
 
@@ -455,5 +455,5 @@ Si solo se comparara **varianza**, podría parecer atractivo \(\hat{\mu}_4\). Si
 2. En la simulación inicial con 100 muestras, \(\hat{\mu}_1\) y \(\hat{\mu}_4\) son los que se ubican más cerca de la media verdadera.
 3. El estimador **menos sesgado** es **\(\hat{\mu}_1\)**.
 4. Los estimadores **consistentes** son **\(\hat{\mu}_1\)** y **\(\hat{\mu}_4\)**.
-5. Bajo el el analisis de eficiencia para estimadores insesgados, el estimador más conveniente es **\(\hat{\mu}_1\)**.
+5. Bajo el el análisis de eficiencia para estimadores insesgados, el estimador más conveniente es **\(\hat{\mu}_1\)**.
 6. Por lo tanto teniendo en cuenta todos los resultados analizados, para estimar la media de una distribución Gamma \(\Gamma(3,2)\), la mejor opción entre los cuatro estimadores es la **media muestral** \(\hat{\mu}_1\).

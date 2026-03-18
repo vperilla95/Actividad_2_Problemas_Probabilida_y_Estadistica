@@ -1,0 +1,443 @@
+---
+title: "Actividad 2 - Problema 2 - Análisis de potencia, tamaño del efecto y errores tipo I y II"
+subtitle: "Métodos y Simulación Estadística - Maestría en Ciencia de Datos - Pontificia Universidad Javeriana Cali"
+author: "- Carolina Marin Ortiz - Victor Hugo Perilla Martinez"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: cosmo
+    code_folding: hide
+lang: es
+encoding: UTF-8
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+```
+# Índice
+
+1. Índice
+2. Problema 5
+3. Solución
+
+# Problema 5
+
+Se asume que la presión arterial en la población general sigue una distribución normal con media 120 mmHg y desviación estándar 15 mmHg. Un laboratorio desea evaluar si la media de presión arterial en un grupo de pacientes con cierta enfermedad difiere significativamente de 120 mmHg, mediante una prueba t para una muestra, asumiendo varianza poblacional desconocida.
+
+**Objetivo del caso**: Determinar de manera informada un tamaño de muestra y un nivel de significancia adecuados para realizar el estudio.
+
+Para lograr este objetivo, analiza la relación entre la potencia estadística, el tamaño del efecto y el tamaño muestral.
+
+- Fija inicialmente el nivel de significancia en α=0.1
+
+- Evalúa la potencia estadística para diferentes tamaños muestrales n=
+ 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500, 600, 700, 800, 900 y 1,000.
+
+- Considera tres tamaños del efecto: d=0.2 (pequeño), d=0.5 (mediano), d=0.8 (grande).
+
+- Visualiza los resultados:
+
+  - Eje X: tamaño muestral.
+
+  - Eje Y: potencia estadística.
+
+  - Traza una curva para cada tamaño del efecto.
+
+  - Utiliza las funciones power.t.test y ggplot2 en R para construir los gráficos.
+
+  - Posteriormente, repite el análisis para α=0.05
+ y α=0.01
+ y compara los tres gráficos.
+
+Preguntas orientadoras para el análisis:
+
+- ¿Qué tamaño de muestra se requiere para alcanzar una potencia del 80% al detectar un efecto grande(d=0.8
+)?
+
+- ¿Cuántas observaciones se necesitan para detectar un efecto mediano (d=0.5
+) con una potencia adecuada?
+
+- Para un efecto grande, ¿qué sucede al aumentar el tamaño de muestra más allá de 300 observaciones? ¿Es eficiente?
+
+- Explica cómo influye el tamaño del efecto sobre la potencia estadística.
+
+- ¿Cómo afecta el tamaño muestral a la potencia estadística?
+
+- ¿En qué punto aumentar el tamaño muestral deja de proporcionar beneficios significativos en la potencia?
+
+Con base en los gráficos obtenidos y tu análisis, propón un tamaño de muestra y un nivel de significancia apropiados para diseñar el estudio.
+
+
+# Solución 
+
+## Definición de parámetros
+
+```{r parametros}
+n_values <- c(10,20,30,40,50,60,70,80,90,100,200,300,400,500,600,700,800,900,1000)
+effect_sizes <- c(0.2, 0.5, 0.8)
+alpha <- 0.1
+diccionario_d <- c(
+  "0.2" = "0.2 (pequeño)",
+  "0.5" = "0.5 (mediano)",
+  "0.8" = "0.8 (grande)"
+)
+
+parametros <- data.frame(
+  Concepto = c("Tamaños muestrales (n)", 
+               "Tamaños del efecto (d)", 
+               "Nivel de significancia (α)"),
+  Valores = c(
+    paste(n_values, collapse = ", ") ,
+     paste(effect_sizes, collapse = ", ") ,
+    alpha
+  )
+)
+
+knitr::kable(parametros, 
+      caption = "Parámetros utilizados en el análisis de potencia",
+      align = "c") %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover", "condensed"),
+    position = "center"
+  )
+```
+
+
+# Evaluación de la potencia estadistica
+```{r potenciaTamanoDelEfecto}
+results <- expand.grid(n = n_values, d = effect_sizes)
+
+results$power <- mapply(function(n, d) {
+  power.t.test(n = n, delta = d, sd = 1,
+               sig.level = alpha,
+               type = "one.sample",
+               alternative = "two.sided")$power
+}, results$n, results$d)
+
+results$d <- as.factor(results$d)
+knitr::kable(
+  results,
+  caption = "Potencia estadística vs Tamaño muestral (α = 0.1)",
+  align = c("l", "c")
+) %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+
+# Visualización
+
+```{r PotenciaVSTamanoEfecto}
+ggplot(results, aes(x = n, y = power, color = d)) +
+  geom_line(size = 1.2) +
+  labs(title = "Potencia vs Tamaño muestral (α = 0.1)",
+       x = "Tamaño de muestra",
+       y = "Potencia",
+       color = "Tamaño del efecto") +
+  theme_minimal()
+```
+
+# Comparación con otros niveles de significancia
+
+```{r comparaotrosNivelesSignificancia}
+compute_power <- function(alpha_val){
+  temp <- expand.grid(n = n_values, d = effect_sizes)
+  temp$power <- mapply(function(n, d) {
+    power.t.test(n = n, delta = d, sd = 1,
+                 sig.level = alpha_val,
+                 type = "one.sample",
+                 alternative = "two.sided")$power
+  }, temp$n, temp$d)
+  temp$alpha <- alpha_val
+  temp$d <- as.factor(temp$d)
+  return(temp)
+}
+
+res_01 <- compute_power(0.1)
+res_005 <- compute_power(0.05)
+res_001 <- compute_power(0.01)
+
+all_results <- bind_rows(res_01, res_005, res_001)
+
+knitr::kable(all_results, digits = 3, caption = "Potencia para distintos tamaños de efecto y distintos alfa")  %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover", "condensed"),
+    position = "center"
+  )
+```
+
+```{r ComparaDistintosAlpha, fig.height=10, fig.width=10}
+ggplot(all_results, aes(x = n, y = power, color = d)) +
+  
+  geom_line(linewidth = 1.2) +
+  
+  geom_hline(yintercept = 0.8, 
+             linetype = "dashed", 
+             color = "gray40") +
+  
+  facet_wrap(~alpha, ncol = 1) +
+  
+  scale_color_manual(
+    values = c("#1b9e77", "#d95f02", "#7570b3"),
+    name = "Tamaño del efecto"
+  ) +
+  
+  scale_x_continuous(
+    breaks = seq(0, 1000, by = 50)
+  ) +
+  
+  scale_y_continuous(
+    breaks = seq(0, 1, 0.1)
+  ) +
+  
+  labs(
+    title = "Potencia estadística según tamaño muestral",
+    subtitle = "Comparación por tamaño del efecto y nivel de significancia",
+    x = "Tamaño de muestra (n)",
+    y = "Potencia estadística"
+  ) +
+  
+  theme_minimal(base_size = 13) +
+  
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold"),
+    
+    panel.grid.major = element_line(color = "gray80"),
+    panel.grid.minor = element_line(color = "gray90")
+  )
+```
+
+
+##  Analisis
+
+El gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia) muestran la relación entre el tamaño de muestra (n) y la potencia estadística, considerando tres tamaños del efecto (d=0.2,0.5,0.8) y tres niveles de significancia (α=0.01,0.05,0.1).
+
+Se observa que la potencia estadística depende tanto del tamaño del efecto como del tamaño de la muestra. Los efectos grandes pueden detectarse con muestras pequeñas, mientras que los efectos pequeños requieren un aumento considerable en el tamaño muestral. Asimismo, niveles de significancia más altos facilitan alcanzar mayor potencia, aunque a costa de incrementar la probabilidad de error tipo I (Concluir que la presión arterial promedio de los pacientes es diferente de 120 mmHg, cuando en realidad sí es 120 mmHg en la población). Por último, se observa que, una vez alcanzados niveles altos de potencia, el aumento adicional del tamaño de muestra genera beneficios marginales (cada vez más pequeños), lo que permitiría verificar un punto óptimo en el diseño del estudio.
+
+### ¿Qué tamaño de muestra se requiere para alcanzar una potencia del 80% al detectar un efecto grande(d=0.8)?
+
+```{r TamanoParaPotencia80d08}
+alfas <- c(0.01, 0.05, 0.1)
+
+res_001 <- power.t.test(
+  power = 0.8,
+  delta = 0.8,
+  sd = 1,
+  sig.level = 0.01,
+  type = "one.sample",
+  alternative = "two.sided"
+)
+
+res_005 <- power.t.test(
+  power = 0.8,
+  delta = 0.8,
+  sd = 1,
+  sig.level = 0.05,
+  type = "one.sample",
+  alternative = "two.sided"
+)
+
+res_01 <- power.t.test(
+  power = 0.8,
+  delta = 0.8,
+  sd = 1,
+  sig.level = 0.1,
+  type = "one.sample",
+  alternative = "two.sided"
+)
+
+
+
+tabla_potencia_grande <- data.frame(
+  Parámetro = c(
+    "Tamaño de muestra estimado (n)",
+    "Tamaño de muestra recomendado",
+    "Tamaño del efecto (d)",
+    "Desviación estándar estandarizada",
+    "Potencia (1 - β)",
+    "Tipo de prueba",
+    "Tipo de contraste"
+  ),
+  `α = 0.01` = c(
+    round(res_001$n, 3),
+    ceiling(res_001$n),
+    res_001$delta,
+    res_001$sd,
+    res_001$power,
+    "one.sample",
+    "two.sided"
+  ),
+  `α = 0.05` = c(
+    round(res_005$n, 3),
+    ceiling(res_005$n),
+    res_005$delta,
+    res_005$sd,
+    res_005$power,
+    "one.sample",
+    "two.sided"
+  ),
+  `α = 0.1` = c(
+    round(res_01$n, 3),
+    ceiling(res_01$n),
+    res_01$delta,
+    res_01$sd,
+    res_01$power,
+    "one.sample",
+    "two.sided"
+  ),
+  stringsAsFactors = FALSE
+)
+
+tabla_potencia_grande[, -1] <- lapply(tabla_potencia_grande[, -1], as.character)
+
+knitr::kable(
+  tabla_potencia_grande,
+  caption = "Tamaño de muestra requerido para alcanzar una potencia del 80% al detectar un efecto grande (d = 0.8) bajo distintos niveles de significancia",
+  align = c("l", "c", "c", "c"),
+  booktabs = TRUE
+) %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+Tenemos en cuenta lo siguiente: para estudios exploratorios se usa α=0.05, estudios clínicos críticos	α=0.01 y en estudios preliminares	α= 0.1. En nuestro caso tomaremos α=0.05.
+
+Como se muestra en la tabla \@ref(tab:TamanoParaPotencia80d08) Se requiere aproximadamente un tamaño de muestra de 15 observaciones para alcanzar una potencia del 80% al detectar un tamaño del efecto grande  (d=0.8) en una prueba t de una muestra con nivel de significancia de 0.05 y contraste bilateral. En dado caso de tener estudios preliminares o críticos el rango iría de un tamaño muestral de 12 a 22.
+
+###  ¿Cuántas observaciones se necesitan para detectar un efecto mediano (d=0.5) con una potencia adecuada?
+
+```{r TamanoParaPotencia80d05}
+alfas <- c(0.01, 0.05, 0.1)
+
+res_001 <- power.t.test(
+  power = 0.8,
+  delta = 0.5,
+  sd = 1,
+  sig.level = 0.01,
+  type = "one.sample",
+  alternative = "two.sided"
+)
+
+res_005 <- power.t.test(
+  power = 0.8,
+  delta = 0.5,
+  sd = 1,
+  sig.level = 0.05,
+  type = "one.sample",
+  alternative = "two.sided"
+)
+
+res_01 <- power.t.test(
+  power = 0.8,
+  delta = 0.5,
+  sd = 1,
+  sig.level = 0.1,
+  type = "one.sample",
+  alternative = "two.sided"
+)
+
+
+
+tabla_potencia_grande <- data.frame(
+  Parámetro = c(
+    "Tamaño de muestra estimado (n)",
+    "Tamaño de muestra recomendado",
+    "Tamaño del efecto (d)",
+    "Desviación estándar estandarizada",
+    "Potencia (1 - β)",
+    "Tipo de prueba",
+    "Tipo de contraste"
+  ),
+  `α = 0.01` = c(
+    round(res_001$n, 3),
+    ceiling(res_001$n),
+    res_001$delta,
+    res_001$sd,
+    res_001$power,
+    "one.sample",
+    "two.sided"
+  ),
+  `α = 0.05` = c(
+    round(res_005$n, 3),
+    ceiling(res_005$n),
+    res_005$delta,
+    res_005$sd,
+    res_005$power,
+    "one.sample",
+    "two.sided"
+  ),
+  `α = 0.1` = c(
+    round(res_01$n, 3),
+    ceiling(res_01$n),
+    res_01$delta,
+    res_01$sd,
+    res_01$power,
+    "one.sample",
+    "two.sided"
+  ),
+  stringsAsFactors = FALSE
+)
+
+tabla_potencia_grande[, -1] <- lapply(tabla_potencia_grande[, -1], as.character)
+
+knitr::kable(
+  tabla_potencia_grande,
+  caption = "Tamaño de muestra requerido para alcanzar una potencia del 80% al detectar un efecto grande (d = 0.5) bajo distintos niveles de significancia",
+  align = c("l", "c", "c", "c"),
+  booktabs = TRUE
+) %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+Tenemos en cuenta lo siguiente: para estudios exploratorios se usa α=0.05, estudios clínicos críticos	α=0.01 y en estudios preliminares	α= 0.1. En nuestro caso tomaremos α=0.05.
+
+Como se muestra en la tabla \@ref(tab:TamanoParaPotencia80d05) Se requiere aproximadamente un tamaño de muestra de 34 observaciones para alcanzar una potencia del 80% al detectar un tamaño del efecto mediano  (d=0.5) en una prueba t de una muestra con nivel de significancia de 0.05 y contraste bilateral. En dado caso de tener estudios preliminares o críticos el rango iría de un tamaño muestral de 27 a 51
+---
+
+### Para un efecto grande, ¿qué sucede al aumentar el tamaño de muestra más allá de 300 observaciones? ¿Es eficiente?
+
+para un efecto grande, como podemos ver en el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), a partir de 300 observaciones, la potencia se aproxima a 1, por lo que aumentar el tamaño muestral genera mejoras marginales (muy pequeñas.
+
+---
+
+## Explica cómo influye el tamaño del efecto sobre la potencia estadística.
+
+En el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), podemos ver que un efecto pequeño genera baja potencia y un efecto grande genera alta potencia. Esto se debe a que la potencia mide la probabilidad de detectar una diferencia real, y esa detección depende directamente de qué tan grande sea esa diferencia.
+
+El tamaño del efecto es un determinante de la potencia estadística, ya que dice qué tan detectable es una diferencia real. Efectos pequeños requieren grandes muestras para ser identificados, mientras que efectos grandes pueden detectarse con pocas observaciones, lo que hace más eficiente el diseño de un estudio.
+
+## ¿Cómo afecta el tamaño muestral a la potencia estadística?
+En el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), se observa que a mayor tamaño de muestra, mayor potencia y menor error tipo II.
+
+El tamaño de muestra termina siendo un factor clave en la potencia estadística, ya que determina la precisión de las estimaciones y determina la capacidad de detectar efectos reales. Incrementar el tamaño muestral aumenta la potencia y reduce el error tipo II (concluir que la media de presión arterial no es diferente de 120 mmHg, cuando en realidad sí existe una diferencia en la población), sin embargo, este efecto presenta rendimientos decrecientes, por lo que es importante encontrar un tamaño de muestra adecuado que equilibre precisión y eficiencia en el resultado.
+
+## ¿En qué punto aumentar el tamaño muestral deja de proporcionar beneficios significativos en la potencia?
+
+En el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), se ve que el aumento del tamaño muestral deja de ser significativamente beneficioso cuando la potencia se aproxima a 1 (o a valores cercanos como 0.9–0.95), dependiendo de la significancia, se observa aproximadamente en n > 200-300.
+
+Se debe tener en cuen que aumentos adicionales en el tamaño de muestra generan mejoras marginales en la capacidad de detección del efecto, lo que indica la presencia de rendimientos decrecientes. Por ello, en el diseño de estudios se busca alcanzar una potencia adecuada (generalmente 0.8 o superior) sin sobredimensionar innecesariamente la muestra.
+
+## Conclusión final
+
+

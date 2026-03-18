@@ -1,0 +1,809 @@
+---
+title: "Actividad 2 - Problema 3 - Teorema del limite central"
+subtitle: "Metodos y Simulacion Estadistica - Maestria en Ciencia de Datos - Pontificia Universidad Javeriana Cali"
+author: "Carolina Marin Ortiz - Victor Hugo Perilla Martinez"
+date: "`r Sys.Date()`"
+output:
+  bookdown::html_document2:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: cosmo
+    code_folding: hide
+    css: estilo.css
+lang: es
+encoding: UTF-8
+---
+
+  
+  
+```{r instalacion_librerias, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
+
+paquetes <- c("knitr", "tidyverse", "broom", "infer", "boot", "kableExtra", "stringr", "summarytools", "dplyr","ggplot2","nortest","moments", "tibble","qqplotr","tibble" )
+
+for (paquete in paquetes){
+  if (!require(paquete, character.only = TRUE)) {
+    install.packages(paquete)
+    library(paquete, character.only = TRUE)
+  } else {
+    library(paquete, character.only = TRUE)
+  }
+}
+library(knitr)
+library(tidyverse)
+library(broom)
+library(infer)
+library(boot)
+library(kableExtra)
+library(stringr)
+library(summarytools)
+library(dplyr)
+library(ggplot2)
+library(nortest)
+library(moments)
+library(tibble)
+
+
+# Cargar librerías necesarias
+library(ggplot2)
+library(qqplotr)  # Para el Q-Q plot con ggplot2
+library(nortest)  # Para test de Kolmogorov-Smirnov
+```
+
+# Índice
+
+1. Índice
+2. Problema 3
+3. Solución
+
+
+# Problema 3: Teorema del límite central
+
+## Enunciado completo
+
+En una planta de fabricación de componentes electrónicos, se modela el tiempo (meses) de funcionamiento continuo de una máquina antes de necesitar mantenimiento mediante una distribución Exponencial. El análisis ha determinado que el tiempo hasta el primer mantenimiento sigue una distribución Exponencial con parámetro λ=0.16
+ 
+A continuación, se presentan una serie de actividades para explorar esta distribución y su aplicación en el contexto del mantenimiento predictivo.
+
+## Actividades solicitadas
+
+### Cálculo de la media y varianza de la población:
+
+  - Determina la media y varianza de la población de los tiempos X hasta que se requiere mantenimiento de las máquinas en este contexto.
+  - Interpreta los resultados en relación con el tiempo esperado antes del mantenimiento y la variabilidad en los tiempos.
+  
+### Gráfico de la curva de densidad:
+
+  - Grafica la función de densidad de la distribución Exponencial que describe la población.
+  - Explica cómo el parámetro λ afectan la forma de la curva.
+  - Interpreta el modelo en relación con el mantenimiento predictivo y la probabilidad de fallos prematuros o tardíos.
+
+### Comparación de parámetros, estimadores y estimaciones:
+Toma 10 muestras aleatorias de tamaño n=200 de la población Exponencial de parámetro λ usando la función rexp(n, rate=lambda) de R y establece una semilla como por ejemplo set.seed(123) para asegurar la reproducibilidad de los resultados. Para cada muestra:
+
+  - Elabora un histograma e interpreta la distribución de los datos.
+  - Calcula la media y varianza muestral y compara con los valores poblacionales.
+  - Analiza los siguientes conceptos:
+    - Parámetros: Identifica los valores poblacionales reales.
+    - Estimadores: Define las fórmulas utilizadas para estimar los parámetros.
+    - Estimaciones: Interpreta los valores obtenidos y su relación con las muestras.
+
+### Aplicación del Teorema del Límite Central para n=200:
+
+  - Genera 100 muestras de tamaño n=200 de la población Exponencial.
+  - Calcula la media muestral de cada muestra y elabora un histograma de las 100 medias muestrales.
+  - Obtén el promedio y la varianza de estas 100 medias muestrales.
+  - Aplica un test de normalidad (α=0.05) a las 100 medias muestrales e interpreta los resultados.
+  - Explica cómo se evidencia el Teorema del Límite Central en el comportamiento de las medias muestrales, considerando:
+    - Distribución de las medias muestrales.
+    - Comparación de la media y varianza muestral con las esperadas.
+
+### Aplicación del Teorema del Límite Central variando n:
+
+  - Repite el análisis anterior extrayendo 100 muestras de cada uno de los siguientes tamaños: n=5, 10, 80, 200, 500 y 2,000.
+  - Para cada tamaño de muestra n:
+    - Calcula el promedio y la varianza de las 100 medias muestrales.
+    - Elabora un histograma de las 100 medias muestrales.
+    - Aplica un test de normalidad (α=0.05) y discute los resultados.
+
+### Concluye sobre la relación entre el tamaño muestral y la validez del Teorema del Límite Central, analizando:
+  - Comportamiento de la distribución de las medias muestrales.
+  - Convergencia de la media y varianza muestral hacia los valores teóricos.
+
+
+# Solución 
+
+## Cálculo de la media y varianza de la población:
+
+De acuerdo con la función de densidad de la distribución Exponencial:
+
+$$f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
+
+Se obtiene que la media y la varianza poblacional están dadas por:
+
+$$E(X) = \frac{1}{\lambda} \quad \text{y} \quad Var(X) = \frac{1}{\lambda^2}$$
+```{r}
+# Definnición de Parámetro de la distribución Exponencial
+lambda <- 0.16
+
+# Cálculo de la Media y varianza poblacional
+media_pob <- 1 / lambda
+varianza_pob <- 1 / lambda^2
+
+# Tabla de resultados
+tabla_params <- data.frame(
+  Medida = c("Media E(X)", "Varianza Var(X)"),
+  Formula = c("$\\frac{1}{\\lambda}$", "$\\frac{1}{\\lambda^2}$"),
+  Sustitucion = c("$\\frac{1}{0.16}$", "$\\frac{1}{0.16^2}$"),
+  Resultado = c(paste(round(media_pob, 4), "meses"),
+                paste(round(varianza_pob, 4), "meses^2"))
+)
+
+```
+```{r tabla-params}
+knitr::kable(tabla_params, 
+      caption = "Media y varianza poblacional - Distribucion Exponencial (lambda = 0.16)",
+      col.names = c("Medida", "Formula", "Sustitucion", "Resultado"),
+      align = c("l", "c", "c", "c"),
+      escape = FALSE,
+      format = "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "bordered"),
+                full_width = FALSE)
+```
+
+La **Tabla \@ref(tab:tabla-params)** evidencia que, bajo una distribución Exponencial con parámetro $\lambda=0.16$, el tiempo esperado hasta el primer mantenimiento de una máquina en la planta es de **6.25 meses**, es decir, en promedio una máquina opera durante aproximadamente **6 meses y 7 días** antes de requerir intervención técnica.
+
+Por otro lado, los resultados evidencian que, con una varianza de 39.06 meses², los tiempos de mantenimiento de la maquinaria de la empresa presentan una alta variabilidad. Lo que significa que, a pesar de que el promedio es de 6.25 meses, en la práctica algunas máquinas podrían requerir mantenimiento muy pronto tras su puesta en marcha, mientras que otras podrían operar por períodos considerablemente más largos sin necesitar intervención.
+
+## Gráfico de la curva de densidad:
+
+La función de densidad de la distribución Exponencial  que describe cómo se distribuye la probabilidad de los tiempos de mantenimiento es: 
+
+$$f(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
+
+donde $\lambda = 0.16$ es la tasa de mantenimiento y $x$ representa el tiempo en meses hasta que la máquina requiere intervención técnica.
+
+
+Con el fin de determinar el rango adecuado para graficar la función de densidad, se calcula la función de distribución acumulada $F(x) = P(X \leq x)$ en intervalos 
+de 10 meses:
+
+$$F(x) = 1 - e^{-\lambda x}$$
+```{r tabla-acumulada}
+# Valores de x incluyendo la media
+x_tabla <- c(0, 1/lambda, 10, 20, 30, 40, 50, 60)
+
+# Calcular densidad y probabilidades
+tabla_acumulada <- data.frame(
+  x = round(x_tabla, 2),
+  densidad = round(dexp(x_tabla, rate = lambda), 4),
+  prob_acum = round(pexp(x_tabla, rate = lambda), 4),
+  prob_super = round(1 - pexp(x_tabla, rate = lambda), 4)
+)
+
+# Mostrar tabla de densidad acumulada
+knitr::kable(tabla_acumulada,
+      caption = "Distribucion acumulada - Exponencial (lambda = 0.16)",
+      col.names = c("x (meses)", "f(x)", "P(X <= x)", "P(X > x)"),
+      align = c("c", "c", "c", "c"),
+      escape = FALSE,
+      format = "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "bordered"),
+                full_width = FALSE) %>%
+  row_spec(2, bold = TRUE, color = "black", background = "#C6E2FF")
+```
+
+Tal como se observa en la Tabla \@ref(tab:tabla-acumulada), a los **60 meses**  se acumula el **99.99%** de la distribución $P(X \leq 60) = 0.9999$, Por lo tanto, se establece $x = 60$ meses como límite para graficar la función de densidad, capturando prácticamente la totalidad de  la distribución.
+
+```{r}
+# Parámetros
+lambda <- 0.16
+
+# Generar valores de x y calcular densidad
+x_vals <- seq(0, 60, length.out = 1000)
+densidad <- dexp(x_vals, rate = lambda)
+
+# Crear dataframe
+df_densidad <- data.frame(
+  x = x_vals,
+  densidad = densidad
+)
+```
+```{r fig.cap="Funcion de densidad - Distribucion Exponencial (lambda = 0.16)"}
+ggplot(df_densidad, aes(x = x, y = densidad)) +
+  geom_line(color = "#FF7F00", linewidth = 1.2) +
+  geom_vline(xintercept = media_pob, color = "red", 
+             linetype = "dashed", linewidth = 0.8) +
+  annotate("text", x = media_pob + 2, y = 0.14, 
+           label = paste("Media =", round(media_pob, 2), "meses"),
+           color = "red", size = 3.5) +
+  scale_x_continuous(breaks = seq(0, 70, by = 10)) +
+  labs(x = "Tiempo hasta mantenimiento (meses)",
+       y = "f(x)") +
+  theme_minimal()
+```
+
+La Figura 3.1. muestra la distribución Exponencial con parámetro $\lambda = 0.16$, que representa el tiempo de funcionamiento de las máquinas 
+antes de necesitar mantenimiento. Tal como se puede evidenciar, la curva es decreciente y asimétrica hacia la derecha, lo que indica que es más probable que las máquinas requieran mantenimiento en los primeros meses de uso. 
+
+La línea roja punteada señala la media, es decir, en promedio, las máquinas necesitarán su primer mantenimiento alrededor de los 6.25 meses. Sin embargo, la cola de la distribución muestra que algunas pueden operar por más tiempo, lo que evidencia la alta variabilidad de la distribución.
+
+En general, la mayoría de las máquinas requieren mantenimiento en los primeros meses, aunque existe aproximadamente un $P(X > \frac{1}{\lambda}) = e^{-1} \approx 36.79\%$ de probabilidad de que funcionen más allá del promedio.
+
+### Efecto del parametro lambda en la distribucion Exponencial: 
+
+```{r fig.cap="Figura 3.2. Efecto del parametro lambda en la distribucion Exponencial"}
+# Diferentes valores de lambda
+lambdas <- c(0.08, 0.16, 0.32, 0.50)
+x_vals <- seq(0, 40, length.out = 1000)
+
+# Crear dataframe con todas las curvas
+df_lambdas <- do.call(rbind, lapply(lambdas, function(l) {
+  data.frame(
+    x = x_vals,
+    densidad = dexp(x_vals, rate = l),
+    lambda = paste0("lambda = ", l)
+  )
+}))
+
+# Etiquetas descriptivas
+df_lambdas$lambda <- factor(df_lambdas$lambda,
+  levels = c("lambda = 0.08", "lambda = 0.16", 
+             "lambda = 0.32", "lambda = 0.5"),
+  labels = c("lambda = 0.08 | Media = 12.5 meses",
+             "lambda = 0.16 | Media = 6.25 meses (caso real)",
+             "lambda = 0.32 | Media = 3.13 meses",
+             "lambda = 0.50 | Media = 2.00 meses"))
+
+# Dataframe con medias
+df_medias <- data.frame(
+  lambda = factor(c("lambda = 0.08 | Media = 12.5 meses",
+                    "lambda = 0.16 | Media = 6.25 meses (caso real)",
+                    "lambda = 0.32 | Media = 3.13 meses",
+                    "lambda = 0.50 | Media = 2.00 meses")),
+  media = c(1/0.08, 1/0.16, 1/0.32, 1/0.50)
+)
+
+# Gráfico
+ggplot(df_lambdas, aes(x = x, y = densidad, color = lambda)) +
+  geom_line(linewidth = 1.2) +
+  geom_vline(data = df_medias, aes(xintercept = media),
+             color = "red", linetype = "dashed", linewidth = 0.8) +
+  scale_x_continuous(breaks = seq(0, 40, by = 10)) +
+  facet_wrap(~ lambda, scales = "free_y", ncol = 2) +
+  labs(title = "Efecto del parametro lambda en la distribucion Exponencial",
+       x = "Tiempo hasta mantenimiento (meses)",
+       y = "f(x)") +
+  theme_minimal() +
+  theme(legend.position = "none",
+        strip.text = element_text(size = 9, face = "bold"))
+```
+La **Figura 3.2** ilustra cómo el parámetro λ\lambda afecta la forma de la curva de densidad de la distribución Exponencial. Se observan cuatro escenarios:
+
+  - Con λ\lambda= 0.08 la curva es más plana y extendida, con una media de 12.5 meses, lo que indica que las máquinas son más duraderas y la probabilidad de fallo se     distribuye a lo largo de un período más amplio.*
+
+  - Con λ\lambda = 0.16 **(caso real)**, la media es de 6.25 meses, representando un comportamiento intermedio donde la mayoría de las máquinas requieren                 mantenimiento en los primeros meses.
+  
+  - Con λ\lambda=  0.32 y λ\lambda = 0.50 las curvas son cada vez más cercanas a cero, con medias de 3.13 y 2 meses respectivamente, evidenciando las máquinas            requeren de mantenimiento pronto. 
+  
+En conclusión, el parámetro $\lambda$ determina la forma de la distribución Exponencial. Controla la altura inicial de la curva $f(0) = \lambda$, la rapidez con la 
+que disminuye y los valores de media y varianza: $$E(X) = \frac{1}{\lambda} \quad \text{y} \quad Var(X) = \frac{1}{\lambda^2}$$ En otras palabras, se obtiene que, a mayor $\lambda$, la curva decrece más rápido, el tiempo promedio de funcionamiento es menor y la variabilidad también disminuye.
+
+### Interpretación el relación con el mantenimiento preventivo y la probabilidad de fallos. 
+
+En el contexto del mantenimiento predictivo, la distribución Exponencial con $\lambda = 0.16$ permite clasificar los fallos en dos categorías:
+
+  - Fallos prematuros: ocurren antes de la media de 6.25 meses.
+  - Fallos tardíos: ocurren después de la media de 6.25 meses.
+
+
+```{r tabla-fallos}
+# Tabla de probabilidades de fallos
+tabla_fallos <- data.frame(
+  Tipo = c("Fallo prematuro", "Fallo tardio"),
+  Condicion = c("X < 6.25 meses", "X > 6.25 meses"),
+  Probabilidad = c(round(pexp(1/lambda, rate = lambda), 4),
+                   round(1 - pexp(1/lambda, rate = lambda), 4)),
+  Porcentaje = c("63.21%", "36.79%"),
+  Implicacion = c("Mantenimiento urgente no planificado",
+                  "Operacion mas alla del promedio esperado")
+)
+
+knitr::kable(tabla_fallos,
+      caption = "Probabilidad de fallos prematuros y tardios",
+      col.names = c("Tipo de fallo", "Condicion", 
+                    "Probabilidad", "Porcentaje", "Implicacion"),
+      align = c("l", "c", "c", "c", "l"),
+      escape = FALSE,
+      format = "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "bordered"),
+                full_width = FALSE) %>%
+  row_spec(1, background = "#FFE4E1") %>%
+  row_spec(2, background = "#E1FFE4")
+```
+Tal como se evidencia en la tabla 3.3.,: 
+
+  - 63.21% de las máquinas requieren mantenimiento antes de 6.25 meses, lo que muestra que la mayoría de fallos son prematuros e impredecibles. Esto sugiere la            necesidad de monitoreo continuo para anticipar mantenimientos y reducir problemas no deseados. 
+  - El 36.79% restante corresponde a fallos tardíos; Estos no son tan frecuente pero puede presentar un mayor riesgo ante daños y mal funcionamiento. 
+  
+  
+## Comparación de parámetros, estimadores y estimaciones:
+
+A continuación, se generan 10 muestras aleatorias de tamaño n=200 a partir de una distribución Exponencial con parámetro λ=0.16
+```{r}
+# se fija semilla para reproducibilidad (42)
+set.seed(42)
+
+# Estimación de Parámetros
+lambda <- 0.16
+n <- 200        # Tamaño de cada muestra
+num_muestras <- 10  # Número de muestras
+```
+### Histograma de las muestras: 
+
+A continuación se presentan los histogramas de las 10 muestras aleatorias de tamaño $n=200$
+```{r}
+# Generar matriz donde cada columna es una muestra de tamaño n=200
+muestras <- matrix(rexp(n * num_muestras, rate = lambda), 
+                   nrow = n, 
+                   ncol = num_muestras)
+```
+
+```{r fig.cap=" Histogramas de las 10 muestras aleatorias de tamanio n=200", fig.width=12, fig.height=14}
+# Convertir matriz a dataframe largo para ggplot
+df_muestras <- data.frame(
+  valor = as.vector(muestras),
+  muestra = rep(paste("Muestra", 1:num_muestras), each = n)
+)
+ggplot(df_muestras, aes(x = valor)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 30,
+                 fill = "#89CFF0",
+                 color = "black",
+                 linewidth = 0.3) +
+  geom_density(color = "red", linewidth = 0.8) +
+  geom_vline(xintercept = media_pob, color = "blue",
+             linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ muestra, ncol = 2,
+             labeller = labeller(muestra = function(x) paste0("n = 200 | ", x))) +
+  labs(title = "Histogramas de las 10 muestras - Distribucion Exponencial",
+       x = "Tiempo hasta mantenimiento (meses)",
+       y = "Densidad",
+       caption = "Linea azul: media poblacional = 6.25 meses | Curva roja: densidad estimada") +
+  theme_bw() +
+  theme(strip.text = element_text(size = 10, face = "bold"),
+        panel.grid.minor = element_blank())
+```
+A partir de la Figura 3.13, se observa lo siguiente:
+
+
+  - Los histogramas de las 10 muestras (n = 200) muestran una asimetría hacia la derecha, con mayor concentración de valores en los primeros meses.Este comportamiento    coincide con la distribución exponencial de la población, lo que evidencia que las muestras representan bien los tiempos de mantenimiento. 
+  - La línea azul indica la media poblacional (6.25 meses) y se observa que la mayoría de datos se ubican antes de este valor (63.21%).
+  - Existe ligera variabilidad entre muestras, lo cual es normal debido al carácter aleatorio del muestreo. 
+  
+### Cálculo de la media y varianza muestral para cada n=200
+
+```{r}
+# Calcular media y varianza muestral para cada muestra
+medias_muestrales <- apply(muestras, 2, mean)
+varianzas_muestrales <- apply(muestras, 2, var)
+```
+
+```{r tabla-estimaciones}
+# Parámetros poblacionales
+media_pob <- 1 / lambda
+varianza_pob <- 1 / lambda^2
+
+# Calcular media y varianza muestral para cada muestra
+medias_muestrales <- apply(muestras, 2, mean)
+varianzas_muestrales <- apply(muestras, 2, var)
+
+# Crear tabla comparativa
+tabla_estimaciones <- tibble(
+  Muestra = paste("Muestra", 1:num_muestras),
+  Media_muestral = round(medias_muestrales, 4),
+  Varianza_muestral = round(varianzas_muestrales, 4),
+  Dif_media = round(abs(medias_muestrales - media_pob), 4),
+  Dif_varianza = round(abs(varianzas_muestrales - varianza_pob), 4)
+)
+
+knitr::kable(
+  tabla_estimaciones,
+  caption = "Comparacion de estimaciones muestrales vs parametros poblacionales.",
+  digits = 4,
+  format = "html",
+  col.names = c("Muestra", "Media muestral", "Varianza muestral",
+                "Dif. media", "Dif. varianza")
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  )
+```
+A partir de la Tabla \@ref(tab:tabla-estimaciones), se observa lo siguiente:
+
+  - Los **parámetros poblacionales** reales son $E(X) = \frac{1}{\lambda} = 6.25$ meses y $Var(X) = \frac{1}{\lambda^2} = 39.0625$ meses².
+  - Los **estimadores** utilizados son la media muestral $\bar{X} = \frac{1}{n}\sum_{i=1}^{n} X_i$ y la varianza muestral $S^2 = \frac{1}{n-1}\sum_{i=1}^{n}(X_i - \bar{X})^2$.
+  - Las **estimaciones** de la media oscilan entre 5.97 y 7.24 meses, con diferencias respecto al valor poblacional de entre 0.13 y 0.99 meses, lo que refleja la         variabilidad natural del muestreo.
+  - Las **estimaciones** de la varianza presentan mayor dispersión, oscilando  entre 30.87 y 63.93 meses², siendo la Muestra 1 la que más se aleja del  valor             poblacional con una diferencia de 24.87 meses².
+  - En general, las estimaciones de la media son más precisas que las de la varianza, lo cual es esperado dado que la varianza muestral tiene mayor variabilidad. 
+  
+  
+### Análisis conceptual: 
+  
+ - **Parámetros poblacionales:**
+
+Los parámetros reales de la población, determinados por la distribución Exponencial con $\lambda = 0.16$, son:
+
+$$E(X) = \frac{1}{\lambda} = \frac{1}{0.16} = 6.25 \text{ meses}$$
+
+$$Var(X) = \frac{1}{\lambda^2} = \frac{1}{0.16^2} = 39.0625 \text{ meses}^2$$
+
+Estos valores son fijos y describen el comportamiento de la población, es decir, los tiempos de mantenimiento de las máquinas de la planta.
+
+  - **Estimadores:**
+
+Los estimadores utilizados para aproximar los parámetros poblacionales a partir de cada muestra son:
+
+- **Estimador de la media** $E(X) = \frac{1}{\lambda}$:
+
+$$\bar{X} = \frac{1}{n}\sum_{i=1}^{n} X_i$$
+
+- **Estimador de la varianza** $Var(X) = \frac{1}{\lambda^2}$:
+
+$$S^2 = \frac{1}{n-1}\sum_{i=1}^{n}(X_i - \bar{X})^2$$
+
+Estos estimadores no son valores constantes,por lo que sus resultados cambian en cada muestra según los datos observados.
+
+**Estimaciones:**
+
+Tal como se evidencia en la Tabla \@ref(tab:tabla-estimaciones), al aplicar los estimadores a cada una de las 10 muestras de tamaño $n=200$, se obtienen valores numéricos diferentes en cada una. Dado que todas las muestras tienen el mismo tamaño $n=200$, se esperaría que las estimaciones presenten una variabilidad similar entre sí. Esto se confirma en los resultados:
+
+  - Las estimaciones de $\bar{X}$ oscilan en un rango estrecho de **5.97 a 7.24 meses**, lo que indica que con $n=200$ el estimador de la media es estable y              consistente entre muestras.
+  - Las estimaciones de $S^2$ muestran mayor dispersión, entre **30.87 y 63.93 meses²**, lo que es propio de la varianza muestral independientemente 
+    del tamaño de muestra.
+
+## Aplicación del Teorema del Límite Central para n=200
+
+A continuación se crean 100 muestras de tamaño 𝑁=200 de una población exponencial, con el propósito de calcular la media de cada muestra, elaborar un histograma de estas medias, estimar su promedio y varianza y aplicar un test de normalidad para analizar su comportamiento y evidenciar el Teorema del Límite Central.
+
+```{r}
+set.seed(42) # Se fija la semilla de reproducibilidad (42)
+lambda <- 0.16
+n <- 200
+num_muestras <- 100
+
+# Generar matriz de 100 muestras de tamaño n=200
+muestras_tlc <- matrix(rexp(n * num_muestras, rate = lambda),
+                       nrow = n,
+                       ncol = num_muestras)
+```
+
+### Medias muestrales e histograma
+
+A continuación se crean y se presentan los histogramas de las 100 medias muestrales 
+```{r}
+# Calcular la media muestral de cada una de las 100 muestras
+medias_tlc <- apply(muestras_tlc, 2, mean)
+```
+
+```{r histograma-tlc, fig.cap="Distribucion de las 100 medias muestrales - Exponencial (n=200)"}
+# Crear dataframe
+df_medias_tlc <- data.frame(media = medias_tlc)
+
+ggplot(df_medias_tlc, aes(x = media)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 20,
+                 fill = "#89CFF0",
+                 color = "black",
+                 linewidth = 0.3) +
+  geom_density(color = "red", linewidth = 0.8) +
+  geom_vline(xintercept = 1/lambda, color = "blue",
+             linetype = "dashed", linewidth = 0.8) +
+  labs(title = "Distribucion de las 100 medias muestrales - n=200",
+       x = "Media muestral",
+       y = "Densidad",
+       caption = "Linea azul: media teorica = 6.25 meses | Curva roja: densidad estimada") +
+  theme_bw()
+```
+La figura **3.4**, evidencia la siguiente información:
+
+  - El histograma presenta una distribución aparentemente simétrica y con forma acampanada,      situada alrededor de $\bar{X} \approx 6.25$ meses, infiriendo que las medias muestrales tienden a una distribución normal.
+  - La curva de densidad (en rojo) refuerza esta afirmación, evidenciando el efecto del          Teorema del Límite Central: aunque los datos originales siguen una                           distribución Exponencial asimétrica, la distribución de las medias muestrales se aproxima     a una distribución normal, sin importar la distribución original de los datos.            -  La línea azul punteada representa la media teórica $E(X) = \frac{1}{\lambda} = 6.25$         meses, alrededor de la cual se concentran la mayoría de las medias  
+    muestrales.
+
+### Promedio y varianza de las muestras
+
+La tabla **3.5** refleja los valores de la media y la varianza de las muestras, asi como el valor teorico de la población. 
+
+```{r tabla-tlc}
+# Calcular valores
+promedio_medias <- mean(medias_tlc)
+varianza_medias <- var(medias_tlc)
+media_teorica <- 1 / lambda
+varianza_teorica <- (1 / lambda^2) / n
+
+# Crear tabla comparativa
+tabla_tlc <- data.frame(
+  Medida = c("Media", "Varianza"),
+  Valor_teorico = c(round(media_teorica, 4), 
+                    round(varianza_teorica, 4)),
+  Valor_muestral = c(round(promedio_medias, 4), 
+                     round(varianza_medias, 4)),
+  Diferencia = c(round(abs(promedio_medias - media_teorica), 4),
+                 round(abs(varianza_medias - varianza_teorica), 4))
+)
+
+knitr::kable(
+  tabla_tlc,
+  caption = "Comparacion de medias y varianzas muestrales vs valores teoricos del Teorema del Límite Central.",
+  digits = 4,
+  format = "html",
+  col.names = c("Medida", "Valor teorico", "Valor muestral", "Diferencia")
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  ) |>
+  row_spec(0, bold = TRUE, background = "#89CFF0", color = "white")
+```
+### Aplicación de los test de normalidad 
+
+Se procede a  evaluar si las 100 medias muestrales siguen una distribución normal,a tráves de la aplicación de los tests de **Shapiro-Wilk** y **Kolmogorov-Smirnov**  con un nivel de significancia $\alpha = 0.05$, donde: 
+
+  - H₀: Los datos siguen una distribución normal
+  - H₁: Los datos no siguen una distribución normal
+  - Criterio: Si p-value > 0.05 → no se rechaza H₀
+  
+```{r test-normalidad}
+# Test de Shapiro-Wilk
+shapiro <- shapiro.test(medias_tlc)
+
+# Test de Kolmogorov-Smirnov
+ks <- ks.test(medias_tlc, "pnorm", 
+              mean = promedio_medias, 
+              sd = sqrt(varianza_medias))
+
+# Tabla de resultados
+tabla_normalidad <- data.frame(
+  Test = c("Shapiro-Wilk", "Kolmogorov-Smirnov"),
+  Estadistico = c(round(shapiro$statistic, 4), 
+                  round(ks$statistic, 4)),
+  P_value = c(round(shapiro$p.value, 4), 
+              round(ks$p.value, 4)),
+  Conclusion = c(ifelse(shapiro$p.value > 0.05, 
+                        "No se rechaza H0", "Se rechaza H0"),
+                 ifelse(ks$p.value > 0.05, 
+                        "No se rechaza H0", "Se rechaza H0"))
+)
+
+knitr::kable(
+  tabla_normalidad,
+  caption = "Tests de normalidad aplicados a las 100 medias muestrales (alpha = 0.05).",
+  digits = 4,
+  format = "html",
+  col.names = c("Test", "Estadistico", "P-value", "Conclusion")
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  ) |>
+  row_spec(0, bold = TRUE, background = "#89CFF0", color = "white")
+```
+
+En primer lugar, se aplica la prueba de normalidad Shapiro - Wilk, la cual, a pesar que es más robusta para muestras pequeñas (n<50), arroja un estadístico $W = 0.9925$ con un p-value de $0.8590 > 0.05$, por lo que **no se rechaza $H_0$**, indicando que las medias muestrales siguen una distribución normal.
+
+Por otro lado, el test de Kolmogorov-Smirnov obtiene un estadístico $D = 0.0570$ con un p-value de $0.9009 > 0.05$, por lo que **no se rechaza $H_0$**.Es decir, se obtiene que los datos siguen una distribución normal. 
+
+Ambos tests concluyen en que las 100 medias muestrales siguen una distribución normal, con media $\bar{X} = 6.3198$ y varianza $S^2 = 0.1916$, muy cercanas a los valores teóricos esperados $E(X) = 6.25$ y $\frac{Var(X)}{n} = 0.1953$.Asi mismo, permite confirmar lo expuesto en el Teorema del Límite Central. 
+
+### Comportamiento de las medias muestrales: 
+
+Tal como se menciono anteriormente, el Teorema del Límite Central se evidencia de la siguiente manera:
+
+**Distribución de las medias muestrales:**
+
+Aunque los tiempos de mantenimiento siguen una distribución Exponencial asimétrica con $\lambda = 0.16$, la Figura \@ref(fig:histograma-tlc) muestra 
+que la distribución de las 100 medias muestrales toma una forma simétrica y acampanada, característica de la distribución normal. Asi mismo, ambos tests de normalidad confirman formalmente este comportamiento con p-values de $0.8590$ y $0.9009$, muy superiores a $\alpha = 0.05$.
+
+**Comparación de la media y varianza muestral con las esperadas:**
+
+Tal como se evidencia en la Tabla \@ref(tab:tabla-tlc), los valores obtenidos son:
+
+- **Media:** $\bar{X} = 6.3198$ vs $E(X) = 6.25$, con una diferencia de $0.0698$ meses.
+- **Varianza:** $S^2 = 0.1916$ vs $\frac{Var(X)}{n} = 0.1953$, con una diferencia de $0.0038$ meses².
+
+La proximidad entre los valores muestrales y los teóricos confirma que con $n=200$, el Teorema del Límite Central opera de manera efectiva, permitiendo aproximar la distribución de las medias muestrales a una normal independientemente de la asimetría de la distribución original.
+
+## Aplicación de la media muestral variando n
+
+Con el fin de analizar cómo el tamaño muestral $n$ afecta el comportamiento de la normalidad, se repite el análisis anterior para 100 muestras de cada uno de los siguientes tamaños: $n \in \{5, 10, 80, 200, 500, 2000\}$.
+
+```{r}
+set.seed(42) # se fija la semilla de la reproducibilidad (42)
+lambda <- 0.16 # Párametro
+num_muestras <- 100 #nùmero de muestras
+tamanos <- c(5, 10, 80, 200, 500, 2000) #tamaños de las muestras
+
+# Generar 100 muestras para cada tamaño y calcular medias
+medias_por_n <- lapply(tamanos, function(n) {
+  muestras <- matrix(rexp(n * num_muestras, rate = lambda),
+                     nrow = n,
+                     ncol = num_muestras)
+  apply(muestras, 2, mean)
+})
+
+names(medias_por_n) <- paste0("n=", tamanos)
+```
+
+```{r tabla-tlc-n}
+# Calcular promedio y varianza para cada tamaño muestral
+tabla_tlc_n <- data.frame(
+  n = tamanos,
+  Promedio = round(sapply(medias_por_n, mean), 4),
+  Varianza = round(sapply(medias_por_n, var), 4),
+  Media_teorica = round(1/lambda, 4),
+  Varianza_teorica = round((1/lambda^2) / tamanos, 4)
+)
+
+knitr::kable(
+  tabla_tlc_n,
+  caption = "Promedio y varianza de las 100 medias muestrales por tamaño muestral.",
+  digits = 4,
+  format = "html",
+  col.names = c("n", "Promedio muestral", "Varianza muestral",
+                "Media teorica", "Varianza teorica")
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  ) |>
+  row_spec(0, bold = TRUE, background = "#89CFF0", color = "white")
+```
+
+  - El promedio muestral se mantiene cercano a la media teórica $E(X) = \frac{1}{\lambda} = 6.25$ meses para todos los tamaños de muestra, lo que confirma que $\bar{X}$ es un estimador insesgado de la media poblacional.
+
+  - La varianza muestral disminuye a medida que aumenta $n$, pasando de $9.0838$ con $n=5$ a $0.0210$ con $n=2000$
+
+  - Para tamaños pequeños ($n=5$ y $n=10$), la varianza presenta una mayor diferencia respecto al valor teórico, evidenciando una alta variabilidad en muestras           pequeñas. 
+  
+  - A partir de $n=80$, la varianza muestral se aproxima notablemente a la teórica, aproximandose hacia los valores poblacionales.
+  
+  - En coclusión, estos resultados muestran que, a medida que $n$ aumenta, las medias muestrales se concentran alrededor de $\mu = \frac{1}{\lambda} = 6.25$, l o que     respalda el Teorema del Límite Central.
+
+### Histograma de las 100 medias muestrales variando n
+
+A continuación se presentan los histogramas de las 100 medias muestrales para cada tamaño $n$
+
+
+```{r histograma-tlc-n, fig.cap="Distribucion de las 100 medias muestrales por tamanio muestral", fig.width=12, fig.height=10}
+# Convertir a dataframe largo
+df_tlc_n <- data.frame(
+  media = unlist(medias_por_n),
+  n = rep(paste0("n = ", tamanos), each = num_muestras)
+)
+
+# Ordenar factor por tamaño muestral
+df_tlc_n$n <- factor(df_tlc_n$n, 
+                      levels = paste0("n = ", tamanos))
+
+# Histogramas
+ggplot(df_tlc_n, aes(x = media)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 20,
+                 fill = "#89CFF0",
+                 color = "black",
+                 linewidth = 0.3) +
+  geom_density(color = "red", linewidth = 0.8) +
+  geom_vline(xintercept = 1/lambda, color = "blue",
+             linetype = "dashed", linewidth = 0.8) +
+  facet_wrap(~ n, scales = "free", ncol = 3) +
+  labs(title = "Distribucion de las 100 medias muestrales por tamanio muestral",
+       x = "Media muestral",
+       y = "Densidad",
+       caption = "Linea azul: media teorica = 6.25 meses | Curva roja: densidad estimada") +
+  theme_bw() +
+  theme(strip.text = element_text(size = 10, face = "bold"),
+        panel.grid.minor = element_blank())
+```
+A partir de la Figura \@ref(fig:histograma-tlc-n), se observa lo siguiente:
+
+  - Con $n=5$ y $n=10$, las distribuciones presentan una forma asimétrica hacia la derecha, tal como se evidencia en la distribución Exponencial original, cuyo           comportamiento esta relacionado con una alta variabilidad.
+  - Con $n=80$, la distribución comienza a mostrar una forma más simétrica, aunque aún se presentan algunas barras irregulares. 
+  - A partir de $n=200$, la distribución de las medias muestrales toma una forma acampanada y simétrica, característica de la distribución normal.
+  - Con $n=2000$, la distribución se comporta como una normal y los valores se concentran cada vez más alrededor de la media teórica $E(X) = \frac{1}{\lambda} =       6.25$ meses, disminuyendo progresivamente la dispersión. 
+  - Este comportamiento confirma el **Teorema del Límite Central**: independientemente de la distribución original, las medias muestrales convergen a una distribución     $N$ a medida que $n$ crece.
+  
+### Aplicación del test de normalidad
+
+Con base en la literatura estadística, que establece que el test de Shapiro-Wilk es más robusto para muestras pequeñas ($n < 50$), se aplica este test para $n=5$ y $n=10$, mientras que para $n \geq 50$ se aplica el test de Kolmogorov-Smirnov, más apropiado para tamaños muestrales mayores, con un nivel de significancia $\alpha = 0.05$, donde: 
+
+  - H₀: Los datos siguen una distribución normal
+  - H₁: Los datos no siguen una distribución normal
+  - Criterio: Si p-value > 0.05 → no se rechaza H₀
+
+```{r tabla-normalidad-n}
+resultados_normalidad <- lapply(tamanos, function(n) {
+  medias <- medias_por_n[[paste0("n=", n)]]
+  
+  shapiro <- shapiro.test(medias)
+  ks <- ks.test(medias, "pnorm", 
+                mean = mean(medias), 
+                sd = sd(medias))
+  
+  # Seleccionar test según tamaño muestral
+  if(n < 50) {
+    test_usado <- "Shapiro-Wilk"
+    estadistico <- round(shapiro$statistic, 4)
+    pvalue <- round(shapiro$p.value, 4)
+    conclusion <- ifelse(shapiro$p.value > 0.05, "No se rechaza H0", "Se rechaza H0")
+  } else {
+    test_usado <- "Kolmogorov-Smirnov"
+    estadistico <- round(ks$statistic, 4)
+    pvalue <- round(ks$p.value, 4)
+    conclusion <- ifelse(ks$p.value > 0.05, "No se rechaza H0", "Se rechaza H0")
+  }
+  
+  data.frame(
+    n = n,
+    Test = test_usado,
+    Estadistico = estadistico,
+    P_value = pvalue,
+    Conclusion = conclusion
+  )
+})
+
+tabla_normalidad_n <- do.call(rbind, resultados_normalidad)
+
+knitr::kable(
+  tabla_normalidad_n,
+  caption = "Tests de normalidad por tamaño muestral (alpha = 0.05).",
+  digits = 4,
+  format = "html",
+  row.names = FALSE,
+  col.names = c("n", "Test aplicado", "Estadistico", "P-value", "Conclusion")
+) |>
+  kableExtra::kable_styling(
+    bootstrap_options = c("striped", "hover", "bordered"),
+    full_width = FALSE,
+    font_size = 12
+  ) |>
+  row_spec(0, bold = TRUE, background = "#89CFF0", color = "white")
+```
+
+
+En la \@ref(tab:tabla-normalidad-n), se evidencian los siguientes resultados: 
+
+  - $n=5$ y $n=10$: el test de Shapiro-Wilk rechaza $H_0$ con p-values de $0.0014$ y $0.0037$ respectivamente, ambos menores a $\alpha = 0.05$, confirmando que con       muestras pequeñas las medias no siguen una distribución normal. Esto corrobora lo evidenciado en la Figura \@ref(fig:histograma-tlc-n), donde la distribución         presenta una asimetría hacia la derecha.
+
+  - $n=80$, $n=200$ y $n=2000$: el test de Kolmogorov-Smirnov no rechaza $H_0$ con p-values de $0.9831$, $0.9853$ y $0.9301$ respectivamente, evidenciando que las      medias muestrales siguen una distribución normal, lo cual se puede confirmar en los histogramas correspondientes.
+
+  - $n=500$: el test de Kolmogorov-Smirnov no rechaza $H_0$ con p-value $= 0.1501 > 0.05$. Aunque el histograma presenta una modesta irregularidad, esto se considera      que  se puede presentar por la variabilidad aleatoria propia.
+
+En general, los resultados confirman que a partir de $n \geq 80$ el **Teorema del Límite Central opera efectivamente**, corroborando que las medias muestrales convergen a una distribución normal independientemente de la asimetría de la distribución Exponencial original.
+
+### Conclusiones
+
+
+**Comportamiento de la distribución de las medias muestrales:**
+
+A medida que el tamaño muestral aumenta, la distribución de las medias muestrales se vuelve cada vez más simétrica y cercana a una normal, 
+incluso cuando la población original sigue una distribución Exponencial asimétrica con $\lambda = 0.16$:
+
+  - Para $n=5$ y $n=10$, la distribución presenta una marcada asimetría  hacia la derecha, y Shapiro-Wilk rechaza la normalidad con p-values de $0.0014$ y $0.0037$.
+  - A partir de $n=80$, la distribución adopta una forma acampanada y Kolmogorov-Smirnov confirma la normalidad con p-values superiores a $0.15$ en todos los casos.
+  - Esto evidencia el **TLC**: $\bar{X} \xrightarrow{d} N\left(\frac{1}{\lambda}, \frac{1}{n\lambda^2}\right)$ cuando $n \rightarrow \infty$.
+
+**Convergencia de la media y varianza muestral hacia los valores teóricos:**
+
+El promedio muestral converge a la media poblacional y la varianza disminuye hacia el valor teórico: 
+
+  - El promedio muestral se mantiene cercano a $\mu = 6.25$ meses en todos los tamaños, oscilando entre $6.2029$ ($n=500$) y $6.9043$ ($n=5$), confirmando que            $\bar{X}$ es un estimador insesgado.
+  - La varianza muestral disminuye de $9.0838$ con $n=5$ a $0.0210$ con $n=2000$, convergiendo al valor teórico $\frac{1}{n\lambda^2}$, lo que indica una mayor           precisión y estabilidad en las estimaciones a medida que $n$ crece.
+
+
+

@@ -50,6 +50,7 @@ c. Procedimiento bootstrap:
 - Calcula 2 tipos de intervalos de confianza para la media mediante Bootstrap.
 - Compara ambos intervalos: ¿Son similares o presentan diferencias significativas?
 
+# Solución 4 
 
 ```{r instalacion_librerias, echo=FALSE, warning=FALSE, message=FALSE, results='hide'}
 
@@ -113,9 +114,11 @@ knitr::kable(
 
 ```
 
+En el análisis de mediciones de rendimientos eléctricos, se adopta un nivel de significancia de 5% (𝛼=0.05) porque este valor es ampliamente aceptado en estadística aplicada como un estándar que permite controlar razonablemente la incertidumbre en la estimación. Si este fuera menor se deberian de tener más de 20 datos debido a que sería bastante exigente la certeza a tener para un conjunto tan pequeño. La precisión de este parametro es aceptable para este ejercicio.
+
 ## 4.a. Normalidad
 
-Para inciiar validaremos la distribución de la muestra.
+Para iniciar validaremos la distribución de la muestra.
 
 ```{r estadisticaDescriptiva, message=FALSE, warning=FALSE}
 
@@ -195,7 +198,7 @@ ggplot(df, aes(x = x)) +
   theme_minimal()
 ```
 
-De la Tabla \@ref(tab:estadisticaDescriptiva) vemos `Mediana - Q1 = 0.13` y que `Q3 - Mediana = 0.21`, por lo cual hay ligera asimetría derecha, pero nada extremo. No vemos outliers en la muestra. La media 5.92 y la mediana 5.9, aproximadamente iguales. La dispersión es muy baja, inclusive el coeficiente de variación de 0.04 muestra que es muy estable la media. La muestra presenta características compatibles con una distribución aproximadamente normal y sugiere que los datos son consistentes y homogéneos.En la figura \@ref(fig:estadisticaHistograma) vemos un histograma el cual forma aproximadamente simétrica, con una curva densidad en forma de campana, que para pocas muestras puede mostrar una form similar a la distribución normal.
+De la Tabla \@ref(tab:estadisticaDescriptiva) vemos `Mediana - Q1 = 0.13` y que `Q3 - Mediana = 0.21`, por lo cual hay ligera asimetría derecha, pero nada extremo. No vemos outliers en la muestra. La media 5.92 y la mediana 5.9, aproximadamente iguales. La dispersión es muy baja, inclusive el coeficiente de variación de 0.04 muestra que es muy estable la media. La muestra presenta características compatibles con una distribución aproximadamente normal y sugiere que los datos son consistentes y homogéneos.En la figura \@ref(fig:estadisticaHistograma) vemos un histograma el cual forma aproximadamente simétrica, con una curva densidad en forma de campana, que para pocas muestras puede mostrar una forma similar a la distribución normal.
 
 Prueba de Shapiro–Wilk: Es la prueba más potente para muestras pequeñas (n < 50). En nuestro caso n = 20 por lo que el resultado de esta prueba es fiable.
 
@@ -260,7 +263,7 @@ ic_parametrico
 Por lo tanto, el intervalo de confianza para la media poblacional es: `IC95%=(5.813038,6.021962)`, lo que indica que con un 95% de confianza, la media verdadera de la población se encuentra entre: `5.813 ≤𝜇≤ 6.022` usando el Paramétrico t.
 
 
-## 4.c. Procedimiento bootstrap para calculo de intervalod e confianza
+## 4.c. Procedimiento bootstrap para calculo de intervalo de confianza
 
 Se recurre a técnicas no paramétricas para estimar el intervalo de confianza, como el método bootstrap, 
 el bootstrap permite estimar la distribución del estimador mediante remuestreo con reemplazo. El método **bootstrap** consiste en generar múltiples muestras a partir de la muestra original mediante **remuestreo con reemplazo**. Sea una muestra original de tamaño:
@@ -399,7 +402,7 @@ knitr::kable(
 
 ```
 
-Teniendo en cuenta que en la Tabla \@ref(tab:intervaloBootstrapTab: 
+Teniendo en cuenta que en la Tabla \@ref(tab:intervaloBootstrapTab): 
 - Paramétrico t → intervalo basado en la distribución t (supone normalidad).
 - Bootstrap Percentil → usa directamente los percentiles de las muestras bootstrap.
 - Bootstrap Normal → usa aproximación normal con media y desviación bootstrap.
@@ -508,6 +511,6 @@ knitr::kable(
 ```
 En la tabla \@ref(tab:TestNormalBootstrap), los tres tests de normalidad (Anderson-Darling, Cramer-von Mises y Lilliefors) tienen valor−p menores a 0.01, lo que significa que se rechaza la hipótesis nula de normalidad. Por otro lado los valores de asimetría y curtosis están dentro del rango esperado para una distribución normal, sugieren que la distribución de las varianzas bootstrap es aproximadamente normal.
  
-En conclusion, los resultados de los intervalos bootstrap (Percentil, Normal y BCa) son muy similares al intervalo paramétrico basado en la distribución t. Dado que las pruebas de normalidad paramétricas no rechazan la hipótesis de normalidad y el gráfico Q-Q respalda esta suposición, el intervalo paramétrico es apropiado para este problema.
+En conclusion, los resultados de los intervalos bootstrap (Percentil, Normal y BCa) son muy similares al intervalo paramétrico basado en la distribución t. Dado que las pruebas de normalidad paramétricas no rechazan la hipótesis de normalidad y el gráfico Q-Q respalda esta suposición, el intervalo paramétrico es apropiado para este problema. Complementariamente, los intervalos bootstrap confirman la robustez del resultado.
 
-Los intervalos bootstrap confirman la estabilidad de la estimación, mostrando valores muy cercanos al intervalo paramétrico. En particular, el intervalo BCa es ligeramente más ajustado debido a su corrección por sesgo y aceleración. Todos los intervalos de bootstrap están incluidos dentro del intervalo paramétrico. Las pruebas de normalidad sobre bootstrap son muy sensibles lo que reduce su confiabilidad además la prueba de normalidad paramétrica con n=20 es más confiable.
+Los intervalos bootstrap confirman la estabilidad de la estimación, mostrando valores muy cercanos al intervalo paramétrico. En particular, el intervalo BCa es ligeramente más ajustado debido a su corrección por sesgo y aceleración, aunque el de percentiles dio igual debido a la simetria de la distribución. Todos los intervalos de bootstrap están incluidos dentro del intervalo paramétrico. Las pruebas de normalidad sobre bootstrap son muy sensibles lo que reduce su confiabilidad.Es más informativo describir la forma de la distribución bootstrap (simetría, colas, sesgo) y reportar BCa como alternativa robusta. 
