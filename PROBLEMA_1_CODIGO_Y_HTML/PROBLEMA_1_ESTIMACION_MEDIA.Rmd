@@ -1,15 +1,18 @@
 ---
-title: "Actividad 2 - Problema 1: Estimación de la probabilidad y la media"
-subtitle: "Métodos de Simulación Estadística - Maestría en Ciencia de Datos - Pontificia Universidad Javeriana Cali"
-author: "Carolina Marin Ortiz - Victor Hugo Perilla Martinez"
+title: "Actividad 2 - Problema 1 - Estimación de la media"
+subtitle: "Métodos y Simulación Estadística - Maestría en Ciencia de Datos - Pontificia Universidad Javeriana Cali"
+author: "- Carolina Marin Ortiz - Victor Hugo Perilla Martinez"
 date: "`r Sys.Date()`"
 output:
-  html_document:
+  bookdown::html_document2:
     toc: true
     toc_float: true
+    toc_depth: 3
     number_sections: true
     theme: cosmo
-    css: estilo.css
+    code_folding: hide
+lang: es
+encoding: UTF-8
 ---
 # Índice
 

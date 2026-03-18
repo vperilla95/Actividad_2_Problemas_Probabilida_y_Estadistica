@@ -114,7 +114,7 @@ knitr::kable(parametros,
 ```
 
 
-# Evaluación de la potencia estadistica
+## Evaluación de la potencia estadistica
 ```{r potenciaTamanoDelEfecto}
 results <- expand.grid(n = n_values, d = effect_sizes)
 
@@ -138,9 +138,9 @@ knitr::kable(
 ```
 
 
-# Visualización
+## Visualización
 
-```{r PotenciaVSTamanoEfecto}
+```{r PotenciaVSTamanoEfecto,fig.cap="Potencia vs Tamaño muestral (α = 0.1)"}
 ggplot(results, aes(x = n, y = power, color = d)) +
   geom_line(size = 1.2) +
   labs(title = "Potencia vs Tamaño muestral (α = 0.1)",
@@ -180,7 +180,7 @@ knitr::kable(all_results, digits = 3, caption = "Potencia para distintos tamaño
   )
 ```
 
-```{r ComparaDistintosAlpha, fig.height=10, fig.width=10}
+```{r ComparaDistintosAlpha, fig.height=10, fig.width=10,fig.cap="Potencia estadística según tamaño muestral. Comparación por tamaño del efecto y nivel de significancia" }
 ggplot(all_results, aes(x = n, y = power, color = d)) +
   
   geom_line(linewidth = 1.2) +
@@ -413,31 +413,68 @@ knitr::kable(
 Tenemos en cuenta lo siguiente: para estudios exploratorios se usa α=0.05, estudios clínicos críticos	α=0.01 y en estudios preliminares	α= 0.1. En nuestro caso tomaremos α=0.05.
 
 Como se muestra en la tabla \@ref(tab:TamanoParaPotencia80d05) Se requiere aproximadamente un tamaño de muestra de 34 observaciones para alcanzar una potencia del 80% al detectar un tamaño del efecto mediano  (d=0.5) en una prueba t de una muestra con nivel de significancia de 0.05 y contraste bilateral. En dado caso de tener estudios preliminares o críticos el rango iría de un tamaño muestral de 27 a 51
----
+
 
 ### Para un efecto grande, ¿qué sucede al aumentar el tamaño de muestra más allá de 300 observaciones? ¿Es eficiente?
 
-para un efecto grande, como podemos ver en el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), a partir de 300 observaciones, la potencia se aproxima a 1, por lo que aumentar el tamaño muestral genera mejoras marginales (muy pequeñas.
+para un efecto grande, como podemos ver en el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), a partir de 300 observaciones, la potencia se aproxima a 1, por lo que aumentar el tamaño muestral genera mejoras marginales (muy pequeñas).
 
----
 
-## Explica cómo influye el tamaño del efecto sobre la potencia estadística.
+### Explica cómo influye el tamaño del efecto sobre la potencia estadística.
 
 En el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), podemos ver que un efecto pequeño genera baja potencia y un efecto grande genera alta potencia. Esto se debe a que la potencia mide la probabilidad de detectar una diferencia real, y esa detección depende directamente de qué tan grande sea esa diferencia.
 
 El tamaño del efecto es un determinante de la potencia estadística, ya que dice qué tan detectable es una diferencia real. Efectos pequeños requieren grandes muestras para ser identificados, mientras que efectos grandes pueden detectarse con pocas observaciones, lo que hace más eficiente el diseño de un estudio.
 
-## ¿Cómo afecta el tamaño muestral a la potencia estadística?
+### ¿Cómo afecta el tamaño muestral a la potencia estadística?
 En el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), se observa que a mayor tamaño de muestra, mayor potencia y menor error tipo II.
 
 El tamaño de muestra termina siendo un factor clave en la potencia estadística, ya que determina la precisión de las estimaciones y determina la capacidad de detectar efectos reales. Incrementar el tamaño muestral aumenta la potencia y reduce el error tipo II (concluir que la media de presión arterial no es diferente de 120 mmHg, cuando en realidad sí existe una diferencia en la población), sin embargo, este efecto presenta rendimientos decrecientes, por lo que es importante encontrar un tamaño de muestra adecuado que equilibre precisión y eficiencia en el resultado.
 
-## ¿En qué punto aumentar el tamaño muestral deja de proporcionar beneficios significativos en la potencia?
+### ¿En qué punto aumentar el tamaño muestral deja de proporcionar beneficios significativos en la potencia?
 
-En el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), se ve que el aumento del tamaño muestral deja de ser significativamente beneficioso cuando la potencia se aproxima a 1 (o a valores cercanos como 0.9–0.95), dependiendo de la significancia, se observa aproximadamente en n > 200-300.
+En el gráfico \@ref(fig:ComparaDistintosAlpha) y la tabla \@ref(tab:comparaotrosNivelesSignificancia), se ve que el aumento del tamaño muestral deja de ser significativamente beneficioso cuando la potencia se aproxima a 1 (o a valores cercanos como 0.9-0.95), dependiendo de la significancia.
 
-Se debe tener en cuen que aumentos adicionales en el tamaño de muestra generan mejoras marginales en la capacidad de detección del efecto, lo que indica la presencia de rendimientos decrecientes. Por ello, en el diseño de estudios se busca alcanzar una potencia adecuada (generalmente 0.8 o superior) sin sobredimensionar innecesariamente la muestra.
+El tamaño muestral deja de proporcionar beneficios significativos en la potencia cuando las curvas comienzan a estabilizarse cerca de 1, es decir, cuando incrementos adicionales en n producen aumentos marginales en la potencia. En este estudio, ese punto depende del tamaño del efecto y del nivel de significancia. Para efectos grandes (d=0.8), la potencia se estabiliza rápido, por lo que aumentar la muestra más allá de 30 (α=0.01) a 50 (α=0.1) observaciones aporta poco. Para efectos medianos (d=0.5), el aplanamiento ocurre aproximadamente entre 50 (α=0.01) y 80 (α=0.1) observaciones. En cambio, para efectos pequeños (d=0.2), los beneficios del aumento muestral se mantienen por más cantidad de muestras y solo comienzan a ser marginales a partir de 300 (α=0.01) a 450 (α=0.1) observaciones o más.
 
-## Conclusión final
+### Conclusión final: Con base en los gráficos obtenidos y tu análisis, propón un tamaño de muestra y un nivel de significancia apropiados para diseñar el estudio.
 
+En este problema, el tamaño del efecto puede interpretarse en unidades estandarizadas mediante la siguiente expresión:
 
+$$
+d = \frac{\mu - 120}{15}
+$$
+
+donde \( \mu \) representa la media poblacional de presión arterial en el grupo de pacientes, 120 mmHg es el valor de referencia poblacional y 15 mmHg corresponde a la desviación estándar asumida para la población general.
+```{r TamanoEfectoPresion}
+#interpretación del tamaño del efecto en unidades de presión arterial
+mu0 <- 120
+sigma <- 15
+
+tabla_efecto_mmHg <- data.frame(
+  `Tamaño del efecto (d)` = c(0.2, 0.5, 0.8),
+  Clasificación = c("Pequeño", "Mediano", "Grande"),
+  `Diferencia esperada (mmHg)` = c(0.2 * sigma, 0.5 * sigma, 0.8 * sigma),
+  `Media esperada si aumenta (mmHg)` = c(mu0 + 0.2 * sigma,
+                                         mu0 + 0.5 * sigma,
+                                         mu0 + 0.8 * sigma),
+  `Media esperada si disminuye (mmHg)` = c(mu0 - 0.2 * sigma,
+                                           mu0 - 0.5 * sigma,
+                                           mu0 - 0.8 * sigma)
+)
+
+tabla_efecto_mmHg[, -2] <- lapply(tabla_efecto_mmHg[, -2], round, 2)
+
+knitr::kable(
+  tabla_efecto_mmHg,
+  caption = "Interpretación del tamaño del efecto en unidades de presión arterial",
+  align = c("c", "c", "c", "c", "c"),
+  booktabs = TRUE
+) %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center"
+  )
+```
+
+Con base en los gráficos y en los valores de potencia obtenidos en el gráfico \@ref(fig:ComparaDistintosAlpha), la tabla \@ref(tab:comparaotrosNivelesSignificancia) y la tabla \@ref(tab:TamanoEfectoPresion). Se propone diseñar el estudio con un nivel de significancia de α=0.05, ya que este valor ofrece un equilibrio adecuado entre el control del error tipo I y la capacidad del test para detectar diferencias reales. En cuanto al tamaño de muestra, se recomienda trabajar con aproximadamente 60 observaciones, porque este valor permite alcanzar una potencia alta para detectar efectos medianos (d=0.5) y prácticamente total para efectos (d=0.8). Además, en el contexto del problema, un efecto mediano equivale a una diferencia de 7.5 mmHg y un efecto grande a una diferencia de 12 mmHg, por lo que esta elección resulta estadísticamente sólida y clínicamente interpretable.
