@@ -1,0 +1,1292 @@
+---
+title: "Actividad 2 - Problema 6  Prueba de hipotesis e intervalo de confianza"
+subtitle: "Metodos y Simulacion Estadistica - Maestria en Ciencia de Datos - Pontificia Universidad Javeriana Cali"
+author: "Carolina Marin Ortiz - Victor Hugo Perilla Martinez"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    theme: cosmo
+    code_folding: hide
+    css: estilo.css
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(scales)
+library(boot)
+library(car)
+library(nortest)
+library(patchwork)
+```
+
+```{r carga-datos, include=FALSE}
+datos <- read.csv("datos_limpios_actividad1.csv")
+```
+
+Problema 6: Prueba de hipotesis e intervalo de confianza
+
+A partir de los datos recopilados durante la campaña de marketing directo con 2,041 clientes, se formulan 4 preguntas de investigación orientadas a profundizar en las características que distinguen a los clientes que aceptaron la campaña de quienes la rechazaron.
+
+# P1: ¿La proporción de clientes que aceptó la campaña supera el 10%?
+
+La variable **Respuesta** es binaria: 1 = acepto la campana (exito) y 0 = no acepto (fracaso). Se establece $p_0 = 0.10$ como valor de referencia, ya que en marketing directo una tasa de respuesta del 10% se considera el umbral minimo de exito.
+
+$$H_0: p \leq 0.10$$
+$$H_1: p > 0.10$$
+
+Donde $p$ representa la proporcion poblacional de clientes que aceptaron la campaña. El estadístico de prueba es:
+
+$$Z = \frac{\hat{p} - p_0}{\sqrt{\dfrac{p_0(1-p_0)}{n}}}$$
+
+Bajo $H_0$, el estadístico $Z$ sigue aproximadamente una distribución normal estándar $Z \sim N(0,1)$, siempre que se cumplan los supuestos.
+
+La hipotesis alternativa es **unilateral derecha**, pues el interes esta en determinar si la proporcion supera el umbral del 10%.
+
+## Verificación de supuestos
+
+Para aplicar la prueba Z de proporción se deben cumplir los siguientes supuestos:
+
+**Supuesto 1 - Variable binaria:** La variable Respuesta toma unicamente dos valores: 1 = exito y 0 = fracaso.
+
+**Supuesto 2 - Independencia:** Los registros corresponden a clientes distintos seleccionados de forma independiente.
+
+**Supuesto 3 - Tamaño de muestra suficientemente grande:** Se verifica:
+
+$$n \cdot p_0 \geq 5 \qquad \text{y} \qquad n \cdot (1 - p_0) \geq 5$$
+
+**Supuesto 4 - Proporción hipotética conocida:** $p_0 = 0.10$.
+
+**Supuesto 5 - Proporción muestral:** $\hat{p} = x/n$, donde $x$ es el número de éxitos observados.
+
+
+```{r supuestos-p1, echo=TRUE, results='hide'}
+# Parametros
+n  <- nrow(datos)
+p0 <- 0.10
+
+# Condiciones supuesto 3
+cond1 <- n * p0
+cond2 <- n * (1 - p0)
+
+# Proporcion muestral
+x     <- sum(datos$Respuesta)
+p_hat <- x / n
+```
+
+```{r tabla-supuestos-p1, echo=FALSE}
+tabla_sup <- data.frame(
+  Supuesto     = c("Variable binaria (Bernoulli)",
+                   "Independencia de observaciones",
+                   "n * p0 >= 5",
+                   "n * (1 - p0) >= 5",
+                   "Proporcion hipotetica conocida",
+                   "Proporcion muestral"),
+  Verificacion = c("Respuesta = {0, 1}",
+                   "Clientes independientes entre si",
+                   paste0("2041 x 0.10 = ", cond1),
+                   paste0("2041 x 0.90 = ", cond2),
+                   "p0 = 0.10",
+                   paste0("x/n = ", x, "/", n, " = ", round(p_hat, 4))),
+  Cumple       = c("Si", "Si", "Si", "Si", "Si", "Si")
+)
+
+kable(tabla_sup,
+      caption = "Tabla 1.1: Verificacion de supuestos - Prueba Z de proporcion",
+      align   = "llc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size  = 13)
+```
+
+De los $n = 2{,}041$ clientes, `r sum(datos$Respuesta)` aceptaron la campaña, con una  proporcion muestral $\hat{p} = `r round(mean(datos$Respuesta), 4)`$. Todos los supuestos se cumplen.
+
+## Prueba de hipótesis
+
+Se procede a calcular el estadístico $Z$ con nivel de significancia del 5%. Si supera el valor crítico $Z_c = 1.645$ (prueba unilateral derecha), se rechaza $H_0$.
+
+```{r prueba-p1, echo=TRUE, results='hide'}
+# Nivel de significancia
+alpha <- 0.05
+
+# Estadistico Z observado
+Z_obs <- (p_hat - p0) / sqrt(p0 * (1 - p0) / n)
+
+# Valor critico (prueba unilateral derecha)
+Z_critico <- qnorm(1 - alpha)
+
+# Valor p
+p_valor <- pnorm(Z_obs, lower.tail = FALSE)
+
+# Decision
+decision <- ifelse(Z_obs > Z_critico, "Rechazar H0", "No rechazar H0")
+```
+
+```{r tabla-prueba-p1, echo=FALSE}
+tabla_prueba <- data.frame(
+  Elemento = c("Proporcion muestral (p)",
+               "Proporcion bajo H0 (p0)",
+               "Tamano muestral (n)",
+               "Estadistico Z observado",
+               "Valor critico Z (alpha = 0.05)",
+               "Valor p",
+               "Decision"),
+  Valor    = c(round(p_hat, 4),
+               p0,
+               n,
+               round(Z_obs, 4),
+               round(Z_critico, 4),
+               ifelse(p_valor < 0.001, "< 0.001", round(p_valor, 4)),
+               decision)
+)
+
+kable(tabla_prueba,
+      caption = "Tabla 1.2: Resultados prueba Z de proporcion",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size  = 13) |>
+  row_spec(7, bold = TRUE, background = "#d5f5e3")
+```
+
+```{r grafica-rechazo-p1, echo=TRUE, fig.cap="Region de rechazo - Prueba Z de proporcion", fig.width=9, fig.height=4}
+x_z <- seq(-4, 10, length.out = 1000)
+df_z <- data.frame(x = x_z, y = dnorm(x_z))
+
+ggplot(df_z, aes(x = x, y = y)) +
+  geom_line(color = "#2c3e50", linewidth = 1) +
+  geom_area(data = subset(df_z, x <= Z_critico),
+            fill = "#85c1e9", alpha = 0.5) +
+  geom_area(data = subset(df_z, x >= Z_critico),
+            fill = "#e74c3c", alpha = 0.6) +
+  geom_vline(xintercept = Z_critico, linetype = "dashed",
+             color = "black", linewidth = 0.8) +
+  geom_vline(xintercept = Z_obs, linetype = "dashed",
+             color = "#27ae60", linewidth = 1) +
+  annotate("text", x = Z_critico + 0.2, y = 0.35,
+           label = paste0("Z critico = ", round(Z_critico, 3)),
+           hjust = 0, color = "black", size = 3.5) +
+  annotate("text", x = Z_obs + 0.2, y = 0.25,
+           label = paste0("Z obs = ", round(Z_obs, 2)),
+           hjust = 0, color = "#27ae60", size = 3.5, fontface = "bold") +
+  annotate("text", x = 0, y = 0.15,
+           label = expression("No rechazar H"[0]),
+           color = "#2980b9", size = 4) +
+  annotate("text", x = 3.5, y = 0.05,
+           label = expression("Rechazar H"[0]),
+           color = "#e74c3c", size = 4) +
+  annotate("text", x = Z_critico + 0.8, y = 0.01,
+           label = "a = 0.05", color = "#e74c3c", size = 3.5) +
+  labs(title = "Figura 1.1. Region de rechazo - Prueba Z de proporcion",x = "Z", y = "Densidad") +
+  theme_minimal()
+```
+
+A partir de los resultados, la figura 1.1 evidencia la proporción muestral ($\hat{p} = 0.1538$) supera la proporción bajo $H_0$ ($p_0 = 0.10$). El estadístico $Z = 8.1082$ supera el valor crítico $1.6449$, ubicándose en la zona de rechazo. El valor $p < 0.001$ confirma evidencia suficiente para rechazar $H_0$. En otras palabras, Se concluye que la proporción de clientes que aceptó la campaña es significativamente mayor que el 10%.
+
+
+## Intervalo de confianza
+
+Dado que los supuestos se cumplen, se construyen dos intervalos de confianza al 95% mediante el método de Wald. El **IC bilateral**  complementa la prueba estimando el rango  de $p$ sin restringir la dirección, mientras que el **IC unilateral derecha** es consistente con la hipótesis alternativa planteada:
+
+$$\text{IC bilateral: } \hat{p} \pm Z_{\alpha/2} \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{n}}$$
+
+$$\text{IC unilateral derecha: } \left[\hat{p} - Z_{\alpha} \cdot \sqrt{\frac{\hat{p}(1-\hat{p})}{n}} \ , \ 1\right]$$
+
+```{r ic-p1-wald, echo=TRUE, results='hide'}
+# Valor critico bilateral al 95%
+Z_alpha2 <- qnorm(1 - alpha / 2)
+
+# Error estandar
+ee <- sqrt(p_hat * (1 - p_hat) / n)
+
+# IC bilateral
+IC_inf     <- p_hat - Z_alpha2 * ee
+IC_sup     <- p_hat + Z_alpha2 * ee
+
+# IC unilateral derecha (consistente con la prueba)
+IC_uni_inf <- p_hat - qnorm(1 - alpha) * ee
+IC_uni_sup <- 1
+```
+
+Donde $Z_{\alpha/2} = 1.96$ corresponde al valor crítico para un nivel de confianza del 95%. Si se deseara un IC consistente con la prueba unilateral derecha, el límite inferior sería $\hat{p} - Z_{\alpha} \cdot \sqrt{\hat{p}(1-\hat{p})/n}$ con límite superior igual a 1. Sin embargo, el IC bilateral es más informativo para efectos de estimación.
+
+```{r ic-p1-nuevo, echo=TRUE, results='hide'}
+# Valor critico bilateral al 95%
+Z_alpha2 <- qnorm(1 - alpha / 2)
+
+# Error estandar
+ee <- sqrt(p_hat * (1 - p_hat) / n)
+
+# Limites del intervalo
+IC_inf <- p_hat - Z_alpha2 * ee
+IC_sup <- p_hat + Z_alpha2 * ee
+```
+
+```{r tabla-ic-p1-nuevo, echo=FALSE}
+tabla_ic <- data.frame(
+  Elemento = c("Proporcion muestral (p)",
+               "Error estandar",
+               "Valor critico Z (alpha/2 = 0.025)",
+               "IC bilateral - Limite inferior",
+               "IC bilateral - Limite superior",
+               "IC bilateral 95%",
+               "IC unilateral derecha 95%"),
+  Valor    = c(round(p_hat, 4),
+               round(ee, 4),
+               round(Z_alpha2, 4),
+               round(IC_inf, 4),
+               round(IC_sup, 4),
+               paste0("[", round(IC_inf, 4), " , ", round(IC_sup, 4), "]"),
+               paste0("[", round(IC_uni_inf, 4), " , 1]"))
+)
+
+kable(tabla_ic,
+      caption = "Tabla 1.3: Intervalos de confianza de Wald al 95%",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size  = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3") |>
+  row_spec(7, bold = TRUE, background = "#d5e5f5")
+```
+
+La proporción muestral ($\hat{p} = 0.1538$) supera la proporción de referencia ($p_0 = 0.10$). El estadístico $Z = 8.1082$ supera el valor crítico $1.6449$ y el valor $p < 0.001$ indica evidencia suficiente para rechazar $H_0$. Se concluye que la proporción de clientes que aceptó la campaña es significativamente mayor que el 10%.
+
+
+# P2:  ¿El ingreso de los clientes que aceptaron la campaña es significativamente mayor al de quienes la rechazaron?
+
+En la Actividad 1 se identifico que el ingreso fue uno de los factores demográficos más determinantes en la decisión de aceptar la oferta. Los clientes que aceptaron registraron un ingreso promedio de $601,778, frente a $501,240 de quienes la rechazaron, lo que representa una diferencia del 20%. Con el propósito de validar estos resultado, se plantea la siguiente prueba de hipótesis para dos muestras independientes:
+
+**Grupo 0:** clientes que NO aceptaron la campana ($n_0 = 1{,}727$)
+**Grupo 1:** clientes que SI aceptaron la campana ($n_1 = 314$)
+
+$$H_0: \mu_1 \leq \mu_0$$
+$$H_1: \mu_1 > \mu_0$$
+
+Donde $\mu_1$ y $\mu_0$ representan el ingreso promedio poblacional de los clientes que aceptaron y rechazaron la campaña, respectivamente. 
+
+
+Dado que las varianzas poblacionales son desconocidas y deben estimarse a partir de las varianzas muestrales, se aplica la prueba t para dos muestras independientes. La decisión entre asumir varianzas iguales (t-Student) o desiguales (t-Welch) se determina previamente mediante la prueba F de Fisher. Si los supuestos de normalidad no se cumplen, se recurre a la prueba no paramétrica de Mann-Whitney como alternativa.
+
+## Prueba de igualdad de varianzas (Test de Fisher)
+
+Se procede a determinar si las varianzas poblacionales de ambos grupos pueden considerarse iguales mediante la prueba F de Fisher:
+
+$$H_0: \sigma_1^2 = \sigma_0^2 \qquad H_1: \sigma_1^2 \neq \sigma_0^2$$
+```{r fisher-p2, echo=TRUE, results='hide'}
+# Separar grupos
+grupo1 <- datos$Ingreso[datos$Respuesta == 1]  # Acepto
+grupo0 <- datos$Ingreso[datos$Respuesta == 0]  # No acepto
+
+# Prueba F de Fisher para igualdad de varianzas
+fisher_test <- var.test(grupo1, grupo0)
+
+# Extraer resultados
+F_obs    <- fisher_test$statistic
+p_fisher <- fisher_test$p.value
+IC_fisher <- fisher_test$conf.int
+decision_fisher <- ifelse(p_fisher < 0.05, 
+                          "Varianzas diferentes -> t-Welch",
+                          "Varianzas iguales -> t-Student")
+```
+
+```{r tabla-fisher-p2, echo=FALSE}
+tabla_fisher <- data.frame(
+  Elemento = c("Varianza grupo 1 (acepto)",
+               "Varianza grupo 0 (no acepto)",
+               "Estadistico F",
+               "Valor p",
+               "IC 95% cociente de varianzas",
+               "Decision"),
+  Valor    = c(round(var(grupo1), 2),
+               round(var(grupo0), 2),
+               round(F_obs, 4),
+               ifelse(p_fisher < 0.001, "< 0.001", round(p_fisher, 4)),
+               paste0("[", round(IC_fisher[1], 4), " , ", 
+                      round(IC_fisher[2], 4), "]"),
+               decision_fisher)
+)
+
+kable(tabla_fisher,
+      caption = "Tabla 2.1. Prueba F de Fisher - Igualdad de varianzas",
+      align = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+Como se evidencia en la tabla 2.1, el valor $p < 0.001$ es menor al nivel de significancia del 5%, por lo que se rechaza $H_0$. Esto indica que las varianzas poblacionales de ambos grupos son significativamente diferentes, por lo que se aplica la **prueba t de Welch** 
+
+## Prueba t de Welch 
+
+
+Se aplica la prueba t de Welch. Para este caso, se trabaja con un nivel de significancia del 5% y prueba unilateral derecha.
+
+
+```{r ttest-p2, echo=TRUE, results='hide'}
+# Prueba t de Welch - unilateral derecha
+ttest_p2 <- t.test(grupo1, grupo0,
+                   alternative = "greater",
+                   mu          = 0,
+                   paired      = FALSE,
+                   var.equal   = FALSE,
+                   conf.level  = 0.95)
+
+# Extraer resultados
+t_obs     <- ttest_p2$statistic
+gl        <- ttest_p2$parameter
+p_ttest   <- ttest_p2$p.value
+decision_t <- ifelse(p_ttest < 0.05, "Rechazar H0", "No rechazar H0")
+```
+
+```{r tabla-ttest-p2, echo=FALSE}
+tabla_ttest <- data.frame(
+  Elemento = c("Media grupo 1 (acepto)",
+               "Media grupo 0 (no acepto)",
+               "Diferencia de medias",
+               "Estadistico t observado",
+               "Grados de libertad (Welch)",
+               "Valor p",
+               "Decision"),
+  Valor    = c(format(round(mean(grupo1), 2), big.mark = ","),
+               format(round(mean(grupo0), 2), big.mark = ","),
+               format(round(mean(grupo1) - mean(grupo0), 2), big.mark = ","),
+               round(t_obs, 4),
+               round(gl, 2),
+               ifelse(p_ttest < 0.001, "< 0.001", round(p_ttest, 4)),
+               decision_t)
+)
+
+kable(tabla_ttest,
+      caption = "Tabla 2.2. Resultados prueba t de Welch - Ingreso",
+      align = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(7, bold = TRUE, background = "#d5f5e3")
+```
+En la tabla 2.2,  se observa que el ingreso promedio de los clientes que aceptaron la campana ($\bar{X}_1 = \$601,778$) es superior al de quienes la rechazaron ($\bar{X}_0 = \$501,240$), con una diferencia de $\$100,538$. El estadístico $t = 7.2359$ con 401 grados de libertad arroja un valor $p < 0.001$, lo que indica evidencia estadística suficiente para rechazar $H_0$. Por lo tanto, se concluye que el ingreso de los clientes que aceptaron la campaña es significativamente mayor al de quienes la rechazaron.
+
+
+## Intervalo de confianza
+
+Dado que se aplico la prueba t de Welch, el intervalo de confianza del 95% para la diferencia de medias $\mu_1 - \mu_0$ se obtiene directamente del resultado del test:
+
+$$(\bar{X}_1 - \bar{X}_0) \pm t_{\alpha/2, v} \cdot \sqrt{\dfrac{S_1^2}{n_1} + \dfrac{S_0^2}{n_0}}$$
+```{r ic-p2, echo=TRUE, results='hide'}
+# El IC se extrae directamente del objeto ttest_p2
+IC_inf_p2 <- ttest_p2$conf.int[1]
+IC_sup_p2 <- ttest_p2$conf.int[2]
+```
+```{r tabla-ic-p2, echo=FALSE}
+tabla_ic_p2 <- data.frame(
+  Elemento = c("Media grupo 1 (acepto)",
+               "Media grupo 0 (no acepto)",
+               "Diferencia de medias",
+               "Limite inferior (95%)",
+               "Limite superior (95%)",
+               "Intervalo de confianza 95%"),
+  Valor    = c(format(round(mean(grupo1), 2), big.mark = ","),
+               format(round(mean(grupo0), 2), big.mark = ","),
+               format(round(mean(grupo1) - mean(grupo0), 2), big.mark = ","),
+               format(round(IC_inf_p2, 2), big.mark = ","),
+               ifelse(is.infinite(IC_sup_p2), "Inf", 
+                      format(round(IC_sup_p2, 2), big.mark = ",")),
+               paste0("[", format(round(IC_inf_p2, 2), big.mark = ","),
+                      " , ", ifelse(is.infinite(IC_sup_p2), "Inf",
+                      format(round(IC_sup_p2, 2), big.mark = ",")), "]"))
+)
+
+kable(tabla_ic_p2,
+      caption = "Tabla 2.3. Intervalo de confianza t-Welch al 95%",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+
+Con base en la Tabla 2.3, el intervalo de confianza del 95% para la diferencia de medias de ingreso entre ambos grupos es $[\$77{,}631.31 \ , \ \infty)$. Dado que la prueba es unilateral derecha,la pregunta de investigación es direccional (queremos saber si quienes aceptaron ganan más, no simplemente si son diferentes)el límite superior es infinito, pues se quiere  confirmar si la diferencia es positiva.
+
+El limite inferior de $\$77{,}631$ indica que, con un 95% de confianza, el ingreso de los clientes que aceptaron la campaña supera al de quienes la rechazaron en al menos esta cantidad.
+
+Este hallazgo es coherente con lo reportado en la Actividad 1, donde se identificó una diferencia promedio de $\$100{,}538$ entre ambos grupos.
+
+## Verificación de supuestos 
+
+**Normalidad**
+
+De acuerdo a la literatura estadística se obtiene que, para muestras grandes ($n_1 = 314$, $n_0 = 1{,}727$), la prueba de Shapiro-Wilk no es recomendable dado que pierde robustez con $n > 50$. Por ello se utiliza la prueba de Kolmogorov-Smirnov. Los datos se estandarizan previamente con `scale()` para compararlos contra la distribución $N(0,1)$, ya que la prueba requiere que los parámetros de la distribución de referencia sean conocidos.
+
+$$H_0: \text{Los datos siguen una distribucion normal}$$
+$$H_1: \text{Los datos NO siguen una distribucion normal}$$
+
+
+```{r grafica-densidad-p2, echo=TRUE, fig.cap="Figura 2.1. Distribucion del ingreso por grupo", fig.width=7, fig.height=4}
+
+# Crear data frame para el grafico
+df_ingreso <- data.frame(
+  Ingreso = c(grupo1, grupo0),
+  Grupo   = c(rep("Acepto", length(grupo1)),
+              rep("No acepto", length(grupo0)))
+)
+
+ggplot(df_ingreso, aes(x = Ingreso, fill = Grupo, color = Grupo)) +
+  geom_density(alpha = 0.3) +
+  scale_x_continuous(labels = scales::comma,
+                     breaks = seq(0, 1200000, by = 200000),
+                     limits = c(0, 1200000)) +
+  scale_y_continuous(labels = scales::scientific,
+                     breaks = seq(0, 2e-6, by = 5e-7)) +
+  labs(title = "Figura 2.1: Densidad", x = "Ingreso", y = "Densidad") +
+  theme_minimal() +
+  theme(legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Los resultados de la Tabla 2.3, 2,4 y la Figura 2.1 muestran que:
+
+ **Grupo 1 (acepto):** la prueba de Kolmogorov-Smirnov arroja un valor $p = 0.0036$, menor al nivel de significancia del 5%, por lo que se rechaza la hipotesis de normalidad.
+ 
+**Grupo 0 (no acepto):** el valor $p = 0.0015$ tambien es menor a 0.05, rechazando igualmente la normalidad.
+
+La Figura 2.1 confirma este resultado — ambas distribuciones presentan asimetrÍa positiva y cola hacia la derecha, alejandose de la forma de campaña simetríca característica de una distribucion normal.
+
+Dado que el supuesto de normalidad no se cumple en ninguno de los dos grupos, los resultados de la prueba t de Welch no son confiables. Por lo tanto, se aplica la **prueba no paramÉtrica de Mann-Whitney** para la comparación de medianas y el **metodo bootstrap** para la construcción del intervalo de confianza.
+
+
+## Prueba de Mann-Whitney
+
+Se procede a aplicar la prueba no paramétrica de Mann-Whitney como alternativa a la prueba t. Para ello, se debe tener en cuenta el cumplimiento de los siguientes supuestos:
+
+**Supuesto 1 - Independencia:** Los datos son independientes en cada grupo, es decir, cada cliente pertenece unicamente a uno de los dos grupos.
+**Supuesto 2 - Escala ordinal:** La variable Ingreso es cuantitativa continua, por lo que permite ordenar los valores en rangos.
+**Supuesto 3 - Forma similar:** Las distribuciones de ambos grupos tienen una forma similar (asimetría positiva), aunque difieren en ubicación (mediana).
+**Supuesto 4 - No requiere normalidad:** Esta prueba es robusta ante distribuciones no normales.
+
+Todos los supuestos se cumplen, por lo que es valido aplicar la prueba de Mann-Whitney. Las hipotesis son:
+
+$$H_0: Me_1 \leq Me_0$$
+$$H_1: Me_1 > Me_0$$
+
+Donde $Me_1$ y $Me_0$ representan la mediana del ingreso de los clientes que aceptaron y rechazaron la campaña respectivamente.
+
+```{r mann-whitney-p2, echo=TRUE, results='hide'}
+# Prueba de Mann-Whitney (unilateral derecha)
+mw_p2 <- wilcox.test(grupo1, grupo0,
+                     alternative = "greater",
+                     paired      = FALSE,
+                     exact       = FALSE,
+                     correct     = TRUE)
+
+# Extraer resultados
+W_obs       <- mw_p2$statistic
+p_mw        <- mw_p2$p.value
+decision_mw <- ifelse(p_mw < 0.05, "Rechazar H0", "No rechazar H0")
+```
+
+```{r tabla-mw-p2, echo=FALSE}
+tabla_mw <- data.frame(
+  Elemento = c("Mediana grupo 1 (acepto)",
+               "Mediana grupo 0 (no acepto)",
+               "Diferencia de medianas",
+               "Estadistico W",
+               "Valor p",
+               "Decision"),
+  Valor    = c(format(round(median(grupo1), 2), big.mark = ","),
+               format(round(median(grupo0), 2), big.mark = ","),
+               format(round(median(grupo1) - median(grupo0), 2), big.mark = ","),
+               format(round(W_obs, 0), big.mark = ","),
+               ifelse(p_mw < 0.001, "< 0.001", round(p_mw, 4)),
+               decision_mw)
+)
+
+kable(tabla_mw,
+      caption = "Tabla 2.4. Resultados prueba Mann-Whitney - Ingreso",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+## Intervalo de confianza bootstrap
+
+Dado que el supuesto de normalidad no se cumple, se construye el intervalo de confianza mediante el metodo bootstrap percentil con $B = 1{,}000$ muestras, el cual no requiere supuestos distribucionales.
+
+```{r ic-bootstrap-p2, echo=TRUE, results='hide'}
+set.seed(123)
+B <- 1000
+
+# Funcion bootstrap: diferencia de medianas
+boot_diff_medianas <- function(data, indices) {
+  g1_boot <- sample(grupo1, size = length(grupo1), replace = TRUE)
+  g0_boot <- sample(grupo0, size = length(grupo0), replace = TRUE)
+  return(median(g1_boot) - median(g0_boot))
+}
+
+# Generar distribuciones bootstrap
+boot_diffs <- replicate(B, {
+  g1_boot <- sample(grupo1, size = length(grupo1), replace = TRUE)
+  g0_boot <- sample(grupo0, size = length(grupo0), replace = TRUE)
+  median(g1_boot) - median(g0_boot)
+})
+
+# IC percentil al 95%
+IC_boot_inf <- quantile(boot_diffs, 0.025)
+IC_boot_sup <- quantile(boot_diffs, 0.975)
+```
+
+```{r tabla-ic-boot-p2, echo=FALSE}
+tabla_ic_boot <- data.frame(
+  Elemento = c("Mediana grupo 1 (acepto)",
+               "Mediana grupo 0 (no acepto)",
+               "Diferencia de medianas observada",
+               "Limite inferior (95%)",
+               "Limite superior (95%)",
+               "Intervalo de confianza 95%"),
+  Valor    = c(format(round(median(grupo1), 2), big.mark = ","),
+               format(round(median(grupo0), 2), big.mark = ","),
+               format(round(median(grupo1) - median(grupo0), 2), big.mark = ","),
+               format(round(IC_boot_inf, 2), big.mark = ","),
+               format(round(IC_boot_sup, 2), big.mark = ","),
+               paste0("[", format(round(IC_boot_inf, 2), big.mark = ","),
+                      " , ", format(round(IC_boot_sup, 2), big.mark = ","), "]"))
+)
+
+kable(tabla_ic_boot,
+      caption = "Tabla 2.5. IC bootstrap percentil 95% - Diferencia de medianas",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+Los resultados de la Tabla 2.5 muestran que:
+
+El intervalo de confianza bootstrap del 95% para la diferencia de medianas es $[\$78{,}278.38 \ , \ \$189{,}672.80]$.
+Con un 95% de confianza, la mediana del ingreso de los clientes que aceptaron la campaÑa supera a la de quienes la rechazaron en al menos $\$78{,}278$ y como máximo en $\$189{,}673$.
+Este resultado es más informativo que el IC del t-Welch, ya que no depende del supuesto de normalidad y es más robusto ante la presencia de asimetría en los datos.
+
+## Conclusiones: 
+
+Los resultados evidencian que:
+
+Tanto la prueba t de Welch ($t = 7.2359$, $p < 0.001$) como la prueba de Mann-Whitney ($W = 343{,}174$, $p < 0.001$) **rechazan $H_0$**, confirmando que el ingreso de los clientes que aceptaron la campana es significativamente mayor al de quienes la rechazaron.
+
+Sin embargo, dado que el supuesto de normalidad no se cumple en ninguno de los dos grupos (Tabla 2.3), los resultados de la prueba t de Welch no son completamente confiables. Por lo tanto, la **prueba de Mann-Whitney es la más adecuada** para este caso.
+
+La diferencia de medianas observada es de $\$139{,}320$, y el intervalo de confianza bootstrap del 95% $[\$78{,}278 \ , \ \$189{,}673]$ confirma que esta diferencia es estadisticamente significativa y economicamente relevante.
+
+Este hallazgo es coherente con lo reportado en la Actividad 1, donde el ingreso fue identificado como uno de los factores demograficos mas determinantes en la decision de aceptar la oferta, y permite concluir que los clientes con mayores ingresos tienen una mayor propension a aceptar la campaña.
+
+
+# P3: ¿El gasto total de los clientes que aceptaron la campaña es significativamente mayor al de quienes la rechazaron?
+
+En la Actividad 1 se logró identificar  que el gasto total fue el factor diferenciador más claro entre ambos grupos, con una diferencia promedio de 1.82 veces entre quienes aceptaron y rechazaron la oferta. Al tratarse de una variable cuantitativa continua comparada entre dos grupos independientes, se aplica la **prueba F de Fisher** para determinar la igualdad de varianzas. Si no se cumple normalidad, se recurre a **Mann-Whitney** y **bootstrap** para el intervalo de confianza.
+
+- **Grupo 0:** clientes que NO aceptaron ($n_0 = 1{,}727$)
+- **Grupo 1:** clientes que SI aceptaron ($n_1 = 314$)
+
+$$H_0: \mu_1 \leq \mu_0 \qquad H_1: \mu_1 > \mu_0$$
+
+Donde $\mu_1$ y $\mu_0$ representan el gasto total promedio de los clientes que aceptaron y rechazaron la campaña respectivamente.
+
+## Prueba de igualdad de varianzas (Test de Fisher)
+
+Se procede a aplicar el Test de Fisher
+
+$$H_0: \sigma_1^2 = \sigma_0^2 \qquad H_1: \sigma_1^2 \neq \sigma_0^2$$
+```{r fisher-p3, echo=TRUE, results='hide'}
+# Separar grupos
+g1_gasto <- datos$Gasto_Total[datos$Respuesta == 1]
+g0_gasto <- datos$Gasto_Total[datos$Respuesta == 0]
+
+# Prueba F de Fisher
+fisher_p3    <- var.test(g1_gasto, g0_gasto)
+F_obs_p3     <- fisher_p3$statistic
+p_fisher_p3  <- fisher_p3$p.value
+IC_fisher_p3 <- fisher_p3$conf.int
+decision_fisher_p3 <- ifelse(p_fisher_p3 < 0.05,
+                             "Varianzas diferentes -> t-Welch",
+                             "Varianzas iguales -> t-Student")
+```
+
+```{r tabla-fisher-p3, echo=FALSE}
+tabla_fisher_p3 <- data.frame(
+  Elemento = c("Varianza grupo 1 (acepto)",
+               "Varianza grupo 0 (no acepto)",
+               "Estadistico F",
+               "Valor p",
+               "IC 95% cociente de varianzas",
+               "Decision"),
+  Valor    = c(round(var(g1_gasto), 2),
+               round(var(g0_gasto), 2),
+               round(F_obs_p3, 4),
+               ifelse(p_fisher_p3 < 0.001, "< 0.001",
+                      round(p_fisher_p3, 4)),
+               paste0("[", round(IC_fisher_p3[1], 4), " , ",
+                      round(IC_fisher_p3[2], 4), "]"),
+               decision_fisher_p3)
+)
+
+kable(tabla_fisher_p3,
+      caption = "Tabla 3.1. Prueba F de Fisher - Igualdad de varianzas Gasto Total",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+Tal como se evidencia en la Tabla 3.1, el valor $p < 0.001$ es menor al nivel de significancia del 5%, por lo que se rechaza $H_0$. Esto indica que las varianzas poblacionales del gasto total entre ambos grupos son significativamente diferentes, por lo que se aplica la **prueba t de Welch**.
+
+
+## Prueba t de Welch
+
+Se aplica la prueba t de Welch con un nivel de significancia del 5%.
+
+```{r ttest-p3, echo=TRUE, results='hide'}
+# Prueba t de Welch - unilateral derecha
+ttest_p3 <- t.test(g1_gasto, g0_gasto,
+                   alternative = "greater",
+                   mu          = 0,
+                   paired      = FALSE,
+                   var.equal   = FALSE,
+                   conf.level  = 0.95)
+
+# Extraer resultados
+t_obs_p3    <- ttest_p3$statistic
+gl_p3       <- ttest_p3$parameter
+p_ttest_p3  <- ttest_p3$p.value
+IC_inf_p3   <- ttest_p3$conf.int[1]
+IC_sup_p3   <- ttest_p3$conf.int[2]
+decision_t_p3 <- ifelse(p_ttest_p3 < 0.05, "Rechazar H0", "No rechazar H0")
+```
+```{r tabla-ttest-p3, echo=FALSE}
+tabla_ttest_p3 <- data.frame(
+  Elemento = c("Media grupo 1 (acepto)",
+               "Media grupo 0 (no acepto)",
+               "Diferencia de medias",
+               "Estadistico t observado",
+               "Grados de libertad (Welch)",
+               "Valor p",
+               "Decision"),
+  Valor    = c(format(round(mean(g1_gasto), 2), big.mark = ","),
+               format(round(mean(g0_gasto), 2), big.mark = ","),
+               format(round(mean(g1_gasto) - mean(g0_gasto), 2), big.mark = ","),
+               round(t_obs_p3, 4),
+               round(gl_p3, 2),
+               ifelse(p_ttest_p3 < 0.001, "< 0.001", round(p_ttest_p3, 4)),
+               decision_t_p3)
+)
+
+kable(tabla_ttest_p3,
+      caption = "Tabla 3.2. Resultados prueba t de Welch - Gasto Total",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(7, bold = TRUE, background = "#d5f5e3")
+```
+
+Tal como se evidencia en la Tabla 3.2, el gasto total promedio de los clientes que aceptaron la campaña ($\bar{X}_1 = \$982.18$) supera ampliamente al de quienes la rechazaron ($\bar{X}_0 = \$540.39$), con una diferencia de $\$441.79$. El estadístico $t = 10.3561$ con 383 grados de libertad arroja un valor $p < 0.001$, por lo que se rechaza $H_0$ y se concluye que el gasto total de los clientes que aceptaron la campaña es significativamente mayor.
+
+## Intervalo de confianza
+
+A continuación, se calculan los intervalos de confianza: 
+
+$$(\bar{X}_1 - \bar{X}_0) \pm t_{\alpha/2, v} \cdot \sqrt{\dfrac{S_1^2}{n_1} + \dfrac{S_0^2}{n_0}}$$
+```{r tabla-ic-p3, echo=FALSE}
+tabla_ic_p3 <- data.frame(
+  Elemento = c("Media grupo 1 (acepto)",
+               "Media grupo 0 (no acepto)",
+               "Diferencia de medias",
+               "Limite inferior (95%)",
+               "Limite superior (95%)",
+               "Intervalo de confianza 95%"),
+  Valor    = c(format(round(mean(g1_gasto), 2), big.mark = ","),
+               format(round(mean(g0_gasto), 2), big.mark = ","),
+               format(round(mean(g1_gasto) - mean(g0_gasto), 2), big.mark = ","),
+               format(round(IC_inf_p3, 2), big.mark = ","),
+               ifelse(is.infinite(IC_sup_p3), "Inf",
+                      format(round(IC_sup_p3, 2), big.mark = ",")),
+               paste0("[", format(round(IC_inf_p3, 2), big.mark = ","),
+                      " , ", ifelse(is.infinite(IC_sup_p3), "Inf",
+                      format(round(IC_sup_p3, 2), big.mark = ",")), "]"))
+)
+
+kable(tabla_ic_p3,
+      caption = "Tabla 3.3. Intervalo de confianza t-Welch al 95% - Gasto Total",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+Los resultados de la Tabla 3.3 muestran que:
+
+El intervalo de confianza del 95% para la diferencia de medias del 
+gasto total es $[\$371.45 \ , \ \infty)$.
+El **límite inferior de $\$371.45$** indica que, con un 95% de confianza, el gasto total de los clientes que aceptaron la campaña 
+supera al de quienes la rechazaron en al menos esta cantidad.
+El límite superior es infinito dado que la prueba es unilateral derecha.
+
+## Verificación de supuestos
+
+
+Dado que la prueba t requiere que los datos de cada grupo sigan una distribución normal, se verifica este supuesto; en caso de no cumplirse, se aplica Mann-Whitney y bootstrap como alternativas.
+
+$$H_0: \text{Los datos siguen una distribucion normal}$$
+$$H_1: \text{Los datos NO siguen una distribucion normal}$$
+```{r normalidad-p3, echo=TRUE, results='hide'}
+# Prueba de Kolmogorov-Smirnov para cada grupo
+ks_g1_gasto <- ks.test(scale(g1_gasto), "pnorm")
+ks_g0_gasto <- ks.test(scale(g0_gasto), "pnorm")
+```
+```{r tabla-normalidad-p3, echo=FALSE}
+tabla_ks_p3 <- data.frame(
+  Grupo       = c("Grupo 1 - Acepto (n = 314)",
+                  "Grupo 0 - No acepto (n = 1727)"),
+  Estadistico = c(round(ks_g1_gasto$statistic, 4),
+                  round(ks_g0_gasto$statistic, 4)),
+  Valor_p     = c(ifelse(ks_g1_gasto$p.value < 0.001, "< 0.001",
+                         round(ks_g1_gasto$p.value, 4)),
+                  ifelse(ks_g0_gasto$p.value < 0.001, "< 0.001",
+                         round(ks_g0_gasto$p.value, 4))),
+  Decision    = c(ifelse(ks_g1_gasto$p.value < 0.05, "No normal", "Normal"),
+                  ifelse(ks_g0_gasto$p.value < 0.05, "No normal", "Normal"))
+)
+
+kable(tabla_ks_p3,
+      caption = "Tabla 3.4. Prueba de Kolmogorov-Smirnov - Normalidad del Gasto Total",
+      align   = "lccc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13)
+```
+
+```{r grafica-densidad-p3, echo=TRUE, fig.cap="Figura 3.1. Distribucion del gasto total por grupo", fig.width=7, fig.height=4}
+df_gasto <- data.frame(
+  Gasto = c(g1_gasto, g0_gasto),
+  Grupo = c(rep("Acepto", length(g1_gasto)),
+            rep("No acepto", length(g0_gasto)))
+)
+
+ggplot(df_gasto, aes(x = Gasto, fill = Grupo, color = Grupo)) +
+  geom_density(alpha = 0.3) +
+  scale_x_continuous(labels = scales::comma,
+                     breaks = seq(0, 2500, by = 500),
+                     limits = c(0, 2500)) +
+  scale_y_continuous(labels = scales::scientific,
+                     breaks = seq(0, 0.003, by = 0.0005)) +
+  labs(title= "Figura 3.1: Densidad", x = "Gasto Total", y = "Densidad") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+Los resultados de la Tabla 3.4 y la Figura 3.1 muestran que:
+
+**Grupo 1 (acepto):** la prueba de Kolmogorov-Smirnov arroja un valor $p < 0.001$, por lo que se rechaza la hipótesis de normalidad.
+**Grupo 0 (no acepto):** el valor $p < 0.001$ tambien rechaza la normalidad.
+la Figura 3.1 confirma este resultado — ambas distribuciones presentan una  asimetria posítiva con cola hacia la derecha, alejandose de la forma de campana simétrica. Adicionalmente, se observa que el grupo que acepto presenta una distribución más dispersa y desplazada hacia valores de gasto más altos, mientras que el grupo que no acepto se concentra fuertemente en valores bajos de gasto.
+
+Dado que el supuesto de normalidad no se cumple en ninguno de los dos grupos, se aplica la **prueba no paramétrica de Mann-Whitney** y el 
+**método bootstrap** para el intervalo de confianza.
+
+## Prueba de Mann-Whitney
+
+Dado que el supuesto de normalidad no se cumple, se aplica la prueba 
+de Mann-Whitney. Los supuestos de esta prueba se cumplen:
+
+**Independencia:** cada cliente pertenece unicamente a uno de los grupos.
+**Escala ordinal:** Gasto_Total es cuantitativa continua.
+**Forma similar:** ambas distribuciones presentan asimetría positiva.
+**No requiere normalidad:** robusta ante distribuciones sesgadas.
+
+$$H_0: Me_1 \leq Me_0 \qquad H_1: Me_1 > Me_0$$
+
+Donde $Me_1$ y $Me_0$ representan la mediana del gasto total de los 
+clientes que aceptaron y rechazaron la campana respectivamente.
+```{r mann-whitney-p3, echo=TRUE, results='hide'}
+# Prueba de Mann-Whitney (unilateral derecha)
+mw_p3 <- wilcox.test(g1_gasto, g0_gasto,
+                     alternative = "greater",
+                     paired      = FALSE,
+                     exact       = FALSE,
+                     correct     = TRUE)
+
+W_obs_p3    <- mw_p3$statistic
+p_mw_p3     <- mw_p3$p.value
+decision_mw_p3 <- ifelse(p_mw_p3 < 0.05, "Rechazar H0", "No rechazar H0")
+```
+```{r tabla-mw-p3, echo=FALSE}
+tabla_mw_p3 <- data.frame(
+  Elemento = c("Mediana grupo 1 (acepto)",
+               "Mediana grupo 0 (no acepto)",
+               "Diferencia de medianas",
+               "Estadistico W",
+               "Valor p",
+               "Decision"),
+  Valor    = c(format(round(median(g1_gasto), 2), big.mark = ","),
+               format(round(median(g0_gasto), 2), big.mark = ","),
+               format(round(median(g1_gasto) - median(g0_gasto), 2), big.mark = ","),
+               format(round(W_obs_p3, 0), big.mark = ","),
+               ifelse(p_mw_p3 < 0.001, "< 0.001", round(p_mw_p3, 4)),
+               decision_mw_p3)
+)
+
+kable(tabla_mw_p3,
+      caption = "Tabla 3.5. Resultados prueba Mann-Whitney - Gasto Total",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+Los resultados de la Tabla 3.5 muestran que:
+
+La **mediana del gasto total** del grupo que acepto ($Me_1 = \$1{,}057.5$) 
+es significativamente superior a la del grupo que no acepto ($Me_0 = \$316$), 
+con una diferencia de $\$741.5$.
+El **estadístico W = 374,758** y el **valor $p < 0.001$** indican que, 
+con una significancia menor al 1%, se rechaza la hipótesis nula en favor 
+de la alternativa.
+Esto sugiere que la mediana del gasto total de los clientes que aceptaron 
+la campanña es significativamente mayor que la de quienes la rechazaron.
+
+Este resultado es consistente con lo obtenido en la prueba t de Welch 
+y con los hallazgos de la Actividad 1, donde el gasto total fue identificado 
+como el factor diferenciador mas claro entre ambos grupos.
+
+
+## Intervalo de confianza bootstrap
+
+Dado que el supuesto de normalidad no se cumple, se construye el intervalo 
+de confianza mediante el metodo bootstrap percentil con $B = 1{,}000$ 
+muestras.
+```{r ic-bootstrap-p3, echo=TRUE, results='hide'}
+set.seed(123)
+B <- 1000
+
+# Generar distribuciones bootstrap - diferencia de medianas
+boot_diffs_p3 <- replicate(B, {
+  g1_boot <- sample(g1_gasto, size = length(g1_gasto), replace = TRUE)
+  g0_boot <- sample(g0_gasto, size = length(g0_gasto), replace = TRUE)
+  median(g1_boot) - median(g0_boot)
+})
+
+# IC percentil al 95%
+IC_boot_inf_p3 <- quantile(boot_diffs_p3, 0.025)
+IC_boot_sup_p3 <- quantile(boot_diffs_p3, 0.975)
+```
+```{r tabla-ic-boot-p3, echo=FALSE}
+tabla_ic_boot_p3 <- data.frame(
+  Elemento = c("Mediana grupo 1 (acepto)",
+               "Mediana grupo 0 (no acepto)",
+               "Diferencia de medianas observada",
+               "Limite inferior (95%)",
+               "Limite superior (95%)",
+               "Intervalo de confianza 95%"),
+  Valor    = c(format(round(median(g1_gasto), 2), big.mark = ","),
+               format(round(median(g0_gasto), 2), big.mark = ","),
+               format(round(median(g1_gasto) - median(g0_gasto), 2), big.mark = ","),
+               format(round(IC_boot_inf_p3, 2), big.mark = ","),
+               format(round(IC_boot_sup_p3, 2), big.mark = ","),
+               paste0("[", format(round(IC_boot_inf_p3, 2), big.mark = ","),
+                      " , ", format(round(IC_boot_sup_p3, 2), big.mark = ","), "]"))
+)
+
+kable(tabla_ic_boot_p3,
+      caption = "Tabla 3.6. IC bootstrap percentil 95% - Diferencia de medianas Gasto Total",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+Los resultados de la Tabla 3.6 muestran que:
+
+- El intervalo de confianza bootstrap del 95% para la diferencia de 
+medianas del gasto total es $[\$510.49 \ , \ \$874.56]$.
+- Dado que el intervalo **no incluye el cero**, se confirma que la 
+diferencia de medianas es estadísticamente significativa, resultado 
+consistente con el rechazo de $H_0$ en la prueba de Mann-Whitney.
+- Con un 95% de confianza, la mediana del gasto total de los clientes 
+que aceptaron la campana supera a la de quienes la rechazaron en al 
+menos $\$510.49$ y como maximo en $\$874.56$.
+
+## conclusiones
+
+Los resultados de la Tabla 3.2 y la Tabla 3.5 muestran que:
+
+Tanto la prueba t de Welch ($t = 10.3561$, $p < 0.001$) como la prueba 
+de Mann-Whitney ($W = 374{,}758$, $p < 0.001$) **rechazan $H_0$**, 
+confirmando que el gasto total de los clientes que aceptaron la campaña 
+es significativamente mayor al de quienes la rechazaron.
+
+Dado que el supuesto de normalidad no se cumple en ninguno de los dos 
+grupos (Tabla 3.4), la **prueba de Mann-Whitney es la mas adecuada** 
+para este caso.
+
+La diferencia de medianas observada es de $\$741.5$, y el intervalo 
+de confianza bootstrap del 95% $[\$510.49 \ , \ \$874.56]$ confirma 
+que esta diferencia es estadísticamente significativa y económicamente 
+relevante — incluso en el escenario más conservador, los clientes que 
+aceptaron gastan al menos $\$510$ más que quienes rechazaron.
+
+Este hallazgo es coherente con lo reportado en la Actividad 1, donde 
+el gasto total fue identificado como el factor diferenciador más claro 
+entre ambos grupos, y permite concluir que los clientes con mayor nivel 
+de consumo tienen una mayor propension a aceptar la campaña.
+
+# P4: ¡La edad de los clientes que aceptaron la campana difiere significativamente de los que la rechazaron?
+
+En la Actividad 1 se identificó que la edad no fue un factor diferenciador significativo entre ambos grupos — los clientes que aceptaron tenían en promedio 50.5 años frente a 51.3 anñs de quienes rechazaron, una diferencia mínima. Sin embargo, resulta relevante validar formalmente si esta diferencia es estadisticamente significativa. 
+
+Al tratarse de una variable cuantitativa continua comparada entre dos grupos independientes, se aplica la **prueba t para dos muestras independientes**, precedida por la **prueba F de Fisher** para determinar la igualdad de varianzas. Si no se cumple normalidad, se recurre a 
+**Mann-Whitney** y **bootstrap** para el intervalo de confianza.
+
+**Grupo 0:** clientes que NO aceptaron ($n_0 = 1{,}727$)
+**Grupo 1:** clientes que SI aceptaron ($n_1 = 314$)
+
+$$H_0: \mu_1 = \mu_0 \qquad H_1: \mu_1 \neq \mu_0$$
+
+Donde $\mu_1$ y $\mu_0$ representan la edad promedio poblacional de los clientes que aceptaron y rechazaron la campana respectivamente. En este caso la hipótesis es **bilateral**
+
+## Prueba de igualdad de varianzas (Test de Fisher)
+
+Antes de aplicar la prueba t, se determina si las varianzas poblacionales de ambos grupos pueden considerarse iguales:
+
+$$H_0: \sigma_1^2 = \sigma_0^2 \qquad H_1: \sigma_1^2 \neq \sigma_0^2$$
+```{r fisher-p4, echo=TRUE, results='hide'}
+# Separar grupos
+g1_edad <- datos$Edad[datos$Respuesta == 1]
+g0_edad <- datos$Edad[datos$Respuesta == 0]
+
+# Prueba F de Fisher
+fisher_p4    <- var.test(g1_edad, g0_edad)
+F_obs_p4     <- fisher_p4$statistic
+p_fisher_p4  <- fisher_p4$p.value
+IC_fisher_p4 <- fisher_p4$conf.int
+decision_fisher_p4 <- ifelse(p_fisher_p4 < 0.05,
+                             "Varianzas diferentes -> t-Welch",
+                             "Varianzas iguales -> t-Student")
+```
+```{r tabla-fisher-p4, echo=FALSE}
+tabla_fisher_p4 <- data.frame(
+  Elemento = c("Varianza grupo 1 (acepto)",
+               "Varianza grupo 0 (no acepto)",
+               "Estadistico F",
+               "Valor p",
+               "IC 95% cociente de varianzas",
+               "Decision"),
+  Valor    = c(round(var(g1_edad), 2),
+               round(var(g0_edad), 2),
+               round(F_obs_p4, 4),
+               ifelse(p_fisher_p4 < 0.001, "< 0.001",
+                      round(p_fisher_p4, 4)),
+               paste0("[", round(IC_fisher_p4[1], 4), " , ",
+                      round(IC_fisher_p4[2], 4), "]"),
+               decision_fisher_p4)
+)
+
+kable(tabla_fisher_p4,
+      caption = "Tabla 4.1. Prueba F de Fisher - Igualdad de varianzas Edad",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+Tal como se evidencia en la Tabla 4.1, el valor $p = 0.1235$ es mayor al nivel de significancia del 5%, por lo que no se rechaza $H_0$. Esto indica que no hay evidencia suficiente para concluir que las varianzas  poblacionales de la edad entre ambos grupos sean diferentes, por lo que se asume igualdad de varianzas y se aplica la **prueba t de Student**.
+
+## Prueba t de Student
+
+Dado que la prueba de Fisher no rechaza la igualdad de varianzas, se aplica la prueba t de Student con un nivel de significancia del 5%. 
+
+```{r ttest-p4, echo=TRUE, results='hide'}
+# Prueba t de Student - bilateral
+ttest_p4 <- t.test(g1_edad, g0_edad,
+                   alternative = "two.sided",
+                   mu          = 0,
+                   paired      = FALSE,
+                   var.equal   = TRUE,
+                   conf.level  = 0.95)
+
+# Extraer resultados
+t_obs_p4      <- ttest_p4$statistic
+gl_p4         <- ttest_p4$parameter
+p_ttest_p4    <- ttest_p4$p.value
+IC_inf_p4     <- ttest_p4$conf.int[1]
+IC_sup_p4     <- ttest_p4$conf.int[2]
+decision_t_p4 <- ifelse(p_ttest_p4 < 0.05, "Rechazar H0", "No rechazar H0")
+```
+```{r tabla-ttest-p4, echo=FALSE}
+tabla_ttest_p4 <- data.frame(
+  Elemento = c("Media grupo 1 (acepto)",
+               "Media grupo 0 (no acepto)",
+               "Diferencia de medias",
+               "Estadistico t observado",
+               "Grados de libertad",
+               "Valor p",
+               "Decision"),
+  Valor    = c(round(mean(g1_edad), 2),
+               round(mean(g0_edad), 2),
+               round(mean(g1_edad) - mean(g0_edad), 2),
+               round(t_obs_p4, 4),
+               round(gl_p4, 2),
+               ifelse(p_ttest_p4 < 0.001, "< 0.001",
+                      round(p_ttest_p4, 4)),
+               decision_t_p4)
+)
+
+kable(tabla_ttest_p4,
+      caption = "Tabla 4.2. Resultados prueba t de Student - Edad",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(7, bold = TRUE, background = "#d5f5e3")
+```
+Tal como se evidencia en la Tabla 4.2, la diferencia de medias de edad entre ambos grupos es mínima ($-0.8$ anos). El estadístico $t = -1.1195$ con 2,039 grados de libertad arroja unvalor $p = 0.2631$, mayor al nivel de significancia del 5%. Por lo tanto, **no se rechaza $H_0$** y se concluye que no existe evidencia estadistica suficiente para afirmar que la edad de los clientes que aceptaron la campaña difiere significativamente de la de quienes la rechazaron.
+
+## Intervalo de confianza
+
+El intervalo de confianza del 95% para la diferencia de medias de edad se obtiene directamente del resultado de la prueba t de Student:
+
+$$(\bar{X}_1 - \bar{X}_0) \pm t_{\alpha/2, v} \cdot S_p \cdot \sqrt{\dfrac{1}{n_1} + \dfrac{1}{n_0}}$$
+```{r tabla-ic-p4, echo=FALSE}
+tabla_ic_p4 <- data.frame(
+  Elemento = c("Media grupo 1 (acepto)",
+               "Media grupo 0 (no acepto)",
+               "Diferencia de medias",
+               "Limite inferior (95%)",
+               "Limite superior (95%)",
+               "Intervalo de confianza 95%"),
+  Valor    = c(round(mean(g1_edad), 2),
+               round(mean(g0_edad), 2),
+               round(mean(g1_edad) - mean(g0_edad), 2),
+               round(IC_inf_p4, 4),
+               round(IC_sup_p4, 4),
+               paste0("[", round(IC_inf_p4, 4),
+                      " , ", round(IC_sup_p4, 4), "]"))
+)
+
+kable(tabla_ic_p4,
+      caption = "Tabla 4.3. Intervalo de confianza t-Student al 95% - Edad",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+Los resultados de la Tabla 4.3 muestran que:
+
+El intervalo de confianza del 95% para la diferencia de medias de edad es $[-2.1981 \ , \ 0.6006]$.
+El **límite inferior negativo** ($-2.20$) indica que el grupo que acepto podria tener en promedio hasta 2.20 años **menos** que el grupo que no acepto. El **límite superior positivo** ($0.60$) indica que tambien podría tener hasta 0.60 años **mas**. 
+
+Dado que el intervalo **incluye el cero**, no es posible establecer una direccion clara dela diferencia, lo que confirma que no existe evidencia estadistica suficiente para afirmar quela edad difiere significativamente entre ambos grupos.
+
+Este resultado es consistente con el no rechazo de $H_0$ en la prueba t de Student y con lo reportado en la Actividad 1, donde la edad no fue identificada como un factor determinante en la decisión de aceptar la oferta.
+
+
+## Verificación de supuestos
+
+Dado que la prueba t requiere que los datos de cada grupo sigan una distribucion normal, se verifica este supuesto; en caso de no cumplirse, se aplica Mann-Whitney y bootstrap como alternativas.
+
+$$H_0: \text{Los datos siguen una distribucion normal}$$
+$$H_1: \text{Los datos NO siguen una distribucion normal}$$
+```{r normalidad-p4, echo=TRUE, results='hide'}
+# Prueba de Kolmogorov-Smirnov para cada grupo
+ks_g1_edad <- ks.test(scale(g1_edad), "pnorm")
+ks_g0_edad <- ks.test(scale(g0_edad), "pnorm")
+```
+```{r tabla-normalidad-p4, echo=FALSE}
+tabla_ks_p4 <- data.frame(
+  Grupo       = c("Grupo 1 - Acepto (n = 314)",
+                  "Grupo 0 - No acepto (n = 1727)"),
+  Estadistico = c(round(ks_g1_edad$statistic, 4),
+                  round(ks_g0_edad$statistic, 4)),
+  Valor_p     = c(ifelse(ks_g1_edad$p.value < 0.001, "< 0.001",
+                         round(ks_g1_edad$p.value, 4)),
+                  ifelse(ks_g0_edad$p.value < 0.001, "< 0.001",
+                         round(ks_g0_edad$p.value, 4))),
+  Decision    = c(ifelse(ks_g1_edad$p.value < 0.05, "No normal", "Normal"),
+                  ifelse(ks_g0_edad$p.value < 0.05, "No normal", "Normal"))
+)
+
+kable(tabla_ks_p4,
+      caption = "Tabla 4.4. Prueba de Kolmogorov-Smirnov - Normalidad de la Edad",
+      align   = "lccc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13)
+```
+```{r grafica-densidad-p4, echo=TRUE, fig.cap="Figura 4.1. Distribucion de la edad por grupo", fig.width=7, fig.height=4}
+df_edad <- data.frame(
+  Edad  = c(g1_edad, g0_edad),
+  Grupo = c(rep("Acepto", length(g1_edad)),
+            rep("No acepto", length(g0_edad)))
+)
+
+ggplot(df_edad, aes(x = Edad, fill = Grupo, color = Grupo)) +
+  geom_density(alpha = 0.3) +
+  scale_x_continuous(breaks = seq(20, 90, by = 10),
+                     limits = c(20, 90)) +
+  scale_y_continuous(labels = scales::scientific,
+                     breaks = seq(0, 0.04, by = 0.01)) +
+  labs(title = "Figura 4.1. Densidad", x = "Edad", y = "Densidad") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+Los resultados de la Tabla 4.4 y la Figura 4.1 muestran que:
+
+**Grupo 1 (acepto):** la prueba de Kolmogorov-Smirnov arroja un valor $p = 0.0695$, mayor al nivel de significancia del 5%, por lo que **no se rechaza** la hipotesis de normalidad. Sin embargo, este valor esta muy cercano al umbral de 0.05, lo que sugiere que la normalidad se 
+cumple de forma marginal en este grupo.
+**Grupo 0 (no acepto):** el valor $p < 0.001$ es menor a 0.05, por lo que **se rechaza** la hipotesis de normalidad con una significancia menor al 1%.
+- la Figura 4.1 refuerza estos resultados. Ambas distribuciones presentan una forma aproximadamente simetrica con pico alrededor de los 50 años, pero se observan dos modas — una alrededor de los 45 años y otra alrededor de los 65 años — lo que indica que 
+la distribucion de la edad no sigue una campana perfecta sino que refleja la presencia de dos subgrupos etarios. 
+
+Para que la prueba t de Student sea valida, el supuesto de normalidad debe cumplirse en **ambos grupos simultaneamente**. Dado que el Grupo 0 no cumple este supuesto, los resultados de la prueba t no son confiables. En consecuencia, se aplica la **prueba no parametrica de Mann-Whitney** y el **metodo bootstrap** para el intervalo de confianza.
+
+## Prueba de Mann-Whitney
+
+Dado que el supuesto de normalidad no se cumple en el Grupo 0, se aplica la prueba de Mann-Whitney. Los supuestos de esta prueba se cumplen:
+
+**Independencia:** cada cliente pertenece unicamente a uno de los grupos.
+**Escala ordinal:** Edad es cuantitativa continua.
+**Forma similar:** ambas distribuciones presentan una forma aproximadamente 
+simetrica con pico alrededor de los 50 años.
+**No requiere normalidad:** robusta ante distribuciones no normales.
+
+En este caso la prueba es **bilateral**, pues no se tiene una direccion 
+esperada de la diferencia:
+
+$$H_0: Me_1 = Me_0 \qquad H_1: Me_1 \neq Me_0$$
+
+Donde $Me_1$ y $Me_0$ representan la mediana de la edad de los clientes 
+que aceptaron y rechazaron la campana respectivamente.
+```{r mann-whitney-p4, echo=TRUE, results='hide'}
+# Prueba de Mann-Whitney (bilateral)
+mw_p4 <- wilcox.test(g1_edad, g0_edad,
+                     alternative = "two.sided",
+                     paired      = FALSE,
+                     exact       = FALSE,
+                     correct     = TRUE)
+
+W_obs_p4    <- mw_p4$statistic
+p_mw_p4     <- mw_p4$p.value
+decision_mw_p4 <- ifelse(p_mw_p4 < 0.05, "Rechazar H0", "No rechazar H0")
+```
+```{r tabla-mw-p4, echo=FALSE}
+tabla_mw_p4 <- data.frame(
+  Elemento = c("Mediana grupo 1 (acepto)",
+               "Mediana grupo 0 (no acepto)",
+               "Diferencia de medianas",
+               "Estadistico W",
+               "Valor p",
+               "Decision"),
+  Valor    = c(round(median(g1_edad), 2),
+               round(median(g0_edad), 2),
+               round(median(g1_edad) - median(g0_edad), 2),
+               format(round(W_obs_p4, 0), big.mark = ","),
+               ifelse(p_mw_p4 < 0.001, "< 0.001",
+                      round(p_mw_p4, 4)),
+               decision_mw_p4)
+)
+
+kable(tabla_mw_p4,
+      caption = "Tabla 4.5. Resultados prueba Mann-Whitney - Edad",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+Los resultados de la Tabla 4.5 muestran que:
+
+ La **mediana de la edad** del grupo que acepto ($Me_1 = 49$ anos) es 
+practicamente identica a la del grupo que no acepto ($Me_0 = 50$ anos), 
+con una diferencia de apenas $-1$ ano.
+El **estadístico W = 260,198** y el **valor $p = 0.2546$** son mayores 
+al nivel de significancia del 5%, por lo que **no se rechaza $H_0$**.
+
+Esto indica que no existe evidencia estadistica suficiente para concluir que la edad de los clientes que aceptaron la campaña difiere significativamente de la de quienes la rechazaron.
+
+## Intervalo de confianza bootstrap
+
+Dado que el supuesto de normalidad no se cumple, se construye el intervalo de confianza mediante el metodo bootstrap percentil con $B = 1{,}000$ muestras.
+
+```{r ic-bootstrap-p4, echo=TRUE, results='hide'}
+set.seed(123)
+B <- 1000
+
+# Generar distribuciones bootstrap - diferencia de medianas
+boot_diffs_p4 <- replicate(B, {
+  g1_boot <- sample(g1_edad, size = length(g1_edad), replace = TRUE)
+  g0_boot <- sample(g0_edad, size = length(g0_edad), replace = TRUE)
+  median(g1_boot) - median(g0_boot)
+})
+
+# IC percentil al 95%
+IC_boot_inf_p4 <- quantile(boot_diffs_p4, 0.025)
+IC_boot_sup_p4 <- quantile(boot_diffs_p4, 0.975)
+```
+```{r tabla-ic-boot-p4, echo=FALSE}
+tabla_ic_boot_p4 <- data.frame(
+  Elemento = c("Mediana grupo 1 (acepto)",
+               "Mediana grupo 0 (no acepto)",
+               "Diferencia de medianas observada",
+               "Limite inferior (95%)",
+               "Limite superior (95%)",
+               "Intervalo de confianza 95%"),
+  Valor    = c(round(median(g1_edad), 2),
+               round(median(g0_edad), 2),
+               round(median(g1_edad) - median(g0_edad), 2),
+               round(IC_boot_inf_p4, 2),
+               round(IC_boot_sup_p4, 2),
+               paste0("[", round(IC_boot_inf_p4, 2),
+                      " , ", round(IC_boot_sup_p4, 2), "]"))
+)
+
+kable(tabla_ic_boot_p4,
+      caption = "Tabla 4.6. IC bootstrap percentil 95% - Diferencia de medianas Edad",
+      align   = "lc") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE, font_size = 13) |>
+  row_spec(6, bold = TRUE, background = "#d5f5e3")
+```
+
+## Análisis e interpretacion
+
+Los resultados de la Tabla 4.2 y la Tabla 4.5 muestran que:
+
+Tanto la prueba t de Student ($t = -1.1195$, $p = 0.2631$) como la prueba de Mann-Whitney ($W = 260{,}198$, $p = 0.2546$) **no rechazan $H_0$**, confirmando que no existe evidencia estadistica suficiente para concluir que la edad difiere significativamente entre ambos grupos.
+
+Es importante destacar que se obtuvo un **resultado mixto en la verificacion de normalidad** el Grupo 1 (acepto) cumple el supuesto ($p = 0.0695$) mientras que el Grupo 0 (no acepto) lo rechaza ($p < 0.001$). Dado que la prueba t requiere normalidad en **ambos grupos simultaneamente**, este resultado mixto invalida el uso de la prueba parametrica,justificando la aplicacion de **Mann-Whitney**.
+
+Frente a este resultado mixto, existian otras alternativas a considerar:
+
+**Transformacion de datos** (logaritmica o raiz cuadrada) para intentar normalizar el grupo que falla, aunque no siempre garantiza normalidad.
+  
+**Prueba de Kolmogorov-Smirnov de dos muestras**, que compara directamente las distribuciones de ambos grupos sin asumir normalidad.
+
+Sin embargo, dado el tamano muestral grande y la robustez de Mann-Whitney ante distribuciones no normales, esta fue la alternativa mas adecuada.
+
+La diferencia de medianas observada es de $-1$ ano y el intervalo de confianza bootstrap del 95% $[-3 \ , \ 1]$ confirma que esta diferencia es estadisticamente insignificante.
+
+Este hallazgo es coherente con lo reportado en la Actividad 1, donde la edad no fue identificada como un factor determinante en la decision de aceptar la oferta, y permite concluir que la campana tuvo alcance similar en todos los grupos de edad.
+
+
+
+## Conclusiones 
+El análisis inferencial nos deja identificar claramente qué variables influyen y cuáles no en la aceptación de la última campaña, a partir de la evidencia estadística obtenida mediante pruebas de hipótesis.
+
+En primer lugar, la variable edad no presenta diferencias estadísticamente significativas entre los grupos de clientes que aceptaron y no aceptaron la campaña. Tanto la prueba t de Student como la prueba no paramétrica de Mann-Whitney arrojan valores p mayores a 0.05, lo que conduce a no rechazar la hipótesis nula . Además, el intervalo de confianza incluye el cero, reforzando que cualquier diferencia observada es mínima y atribuible al azar. En consecuencia, la edad no es un factor determinante en la decisión de aceptación.
+
+Por otro lado, las variables asociadas al comportamiento económico del cliente ingreso y gasto, principalmente el gasto total , muestran diferencias significativas. Las pruebas aplicadas (t de Welch y Mann-Whitney) presentan valores p menores a 0.001, lo que implica rechazar la hipótesis nula y concluir que existe una diferencia real entre los grupos . El intervalo de confianza bootstrap confirma que esta diferencia es positiva y relevante, indicando que los clientes que aceptan la campaña tienen un gasto considerablemente mayor.
+
+Desde una perspectiva integral, los resultados evidencian que:
+
+- Las variable sociodemográfica como la edad no explican el comportamiento de aceptación de la última campaña.
+- Las variables económicas como gasto o ingreso sí tienen un impacto significativo y consistente en la aceptación de la última campaña.
+El uso combinado de pruebas paramétricas, no paramétricas y bootstrap permitió validar los resultados incluso cuando no se cumplían supuestos como la normalidad.
+
+En síntesis, el perfil del cliente que acepta la campaña no se define por su edad, sino por su capacidad y comportamiento de consumo, lo que sugiere que las estrategias de marketing deberían enfocarse en variables económicas para mejorar la efectividad de futuras campañas.
